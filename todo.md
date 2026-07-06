@@ -14,11 +14,11 @@
 **Depends on:** none
 **Context:** Establishes the base folder layout separating the offline data/ML pipeline from the Flask web app, so the two concerns (modeling vs. serving) never get tangled. This is the foundation every later task writes into.
 
-- [ ] **T-001.1** Create root project folder `nba-shot-quality-model/` with subfolders: `pipeline/` (data pull, feature engineering, training, scoring scripts), `app/` (Flask application), `data/raw/`, `data/processed/`, `models/` (trained artifacts, plots), `db/` (SQLite file lives here)
-- [ ] **T-001.2** Initialize a git repository at the project root; create `.gitignore` covering `venv/`, `__pycache__/`, `data/raw/*`, `data/processed/*`, `*.sqlite3`, `.env`
-- [ ] **T-001.3** Add a placeholder `.gitkeep` in each empty data/model folder so the structure is preserved in git
-- [ ] **T-001.4** Write a minimal `README.md` stub with project name and one-line description (full docs added later)
-- [ ] **T-001.5** Make an initial commit
+- [x] **T-001.1** Create root project folder `nba-shot-quality-model/` with subfolders: `pipeline/` (data pull, feature engineering, training, scoring scripts), `app/` (Flask application), `data/raw/`, `data/processed/`, `models/` (trained artifacts, plots), `db/` (SQLite file lives here)
+- [x] **T-001.2** Initialize a git repository at the project root; create `.gitignore` covering `venv/`, `__pycache__/`, `data/raw/*`, `data/processed/*`, `*.sqlite3`, `.env` — repo/initial commit already existed from planning; `.gitignore` added now
+- [x] **T-001.3** Add a placeholder `.gitkeep` in each empty data/model folder so the structure is preserved in git
+- [x] **T-001.4** Write a minimal `README.md` stub with project name and one-line description (full docs added later)
+- [x] **T-001.5** Make an initial commit — committed as "Scaffold project structure (pipeline/, app/, data/, models/, db/)"
 
 ---
 
@@ -27,11 +27,11 @@
 **Depends on:** T-001
 **Context:** Pins the exact tech stack (nba_api, pandas, xgboost, matplotlib, flask, plotly) so the environment is reproducible and versions don't drift mid-project.
 
-- [ ] **T-002.1** Create a Python virtual environment (`venv` or `poetry`) at project root
-- [ ] **T-002.2** Install core pipeline packages: `nba_api`, `pandas`, `xgboost`, `scikit-learn` (metrics/calibration utilities), `matplotlib`
-- [ ] **T-002.3** Install app packages: `flask`, `python-dotenv`
-- [ ] **T-002.4** Freeze installed versions into `requirements.txt`
-- [ ] **T-002.5** Write a smoke-test script `pipeline/00_smoke_test.py` that imports every installed package and prints versions; run it to confirm the environment is healthy
+- [x] **T-002.1** Create a Python virtual environment (`venv` or `poetry`) at project root
+- [x] **T-002.2** Install core pipeline packages: `nba_api`, `pandas`, `xgboost`, `scikit-learn` (metrics/calibration utilities), `matplotlib` — also added `pyarrow` (required for `.parquet` I/O used throughout the pipeline, not listed explicitly in the PRD but needed by every read/write step)
+- [x] **T-002.3** Install app packages: `flask`, `python-dotenv` — also added `gunicorn` now since T-047 needs it later and it's zero-cost to pin today
+- [x] **T-002.4** Freeze installed versions into `requirements.txt`
+- [x] **T-002.5** Write a smoke-test script `pipeline/00_smoke_test.py` that imports every installed package and prints versions; run it to confirm the environment is healthy — passes. **Real environment gap found and fixed:** XGBoost's compiled extension failed to load on macOS (`libxgboost.dylib` needs OpenMP) until `brew install libomp` was run; documented as a prerequisite in `CLAUDE.md`.
 
 ---
 
@@ -40,10 +40,10 @@
 **Depends on:** T-002
 **Context:** Centralizes the decisions already locked in the PRD (season scope, thresholds, file paths) into one config module so no script hardcodes magic values that later need to change in five places.
 
-- [ ] **T-003.1** Create `pipeline/config.py` defining the 3 target season strings (e.g. `"2022-23"`, `"2023-24"`, `"2024-25"`), with the most recent marked as the `TEST_SEASON` and the other two as `TRAIN_SEASONS`
-- [ ] **T-003.2** Add constants: `MIN_PLAYER_ATTEMPTS = 50` (inclusion threshold for player dataset) and `LEADERBOARD_MIN_ATTEMPTS = 250` (leaderboard qualification threshold)
-- [ ] **T-003.3** Add file path constants for `data/raw/`, `data/processed/`, `models/`, and the SQLite DB path in `db/`
-- [ ] **T-003.4** Add a `REQUEST_DELAY_SECONDS` constant (e.g. 0.6–1s) and `MAX_RETRIES` constant for polite, resilient `nba_api` polling (stats.nba.com rate-limits aggressively)
+- [x] **T-003.1** Create `pipeline/config.py` defining the 3 target season strings (e.g. `"2022-23"`, `"2023-24"`, `"2024-25"`), with the most recent marked as the `TEST_SEASON` and the other two as `TRAIN_SEASONS`
+- [x] **T-003.2** Add constants: `MIN_PLAYER_ATTEMPTS = 50` (inclusion threshold for player dataset) and `LEADERBOARD_MIN_ATTEMPTS = 250` (leaderboard qualification threshold)
+- [x] **T-003.3** Add file path constants for `data/raw/`, `data/processed/`, `models/`, and the SQLite DB path in `db/`
+- [x] **T-003.4** Add a `REQUEST_DELAY_SECONDS` constant (e.g. 0.6–1s) and `MAX_RETRIES` constant for polite, resilient `nba_api` polling (stats.nba.com rate-limits aggressively)
 
 ---
 

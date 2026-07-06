@@ -57,7 +57,9 @@ This is a **one-time historical build** — the dataset and model are not live-u
 
 - Python 3.10+
 - A virtual environment tool (`venv` or `poetry`)
+- macOS only: `brew install libomp` — XGBoost's compiled extension links against OpenMP at runtime and fails to import without it (`libxgboost.dylib` load error)
 - No external accounts/API keys required — `nba_api` calls stats.nba.com directly with no auth, but is rate-limited (see `pipeline/config.py` for delay/retry settings)
+- Network access to `stats.nba.com` for the pipeline pull steps (T-004–T-008) — some sandboxed/CI environments block this host; run the pipeline from a machine with normal internet access
 
 ---
 
