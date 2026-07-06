@@ -124,10 +124,12 @@
 **Depends on:** T-008
 **Context:** Combines the per-player/per-season shot files into one working dataset, standardizing types so every downstream feature step operates on a single clean table instead of hundreds of small files.
 
-- [ ] **T-009.1** Write `pipeline/06_consolidate_shots.py` that loads and concatenates all files under `data/raw/shots/`
-- [ ] **T-009.2** Standardize column names/types (e.g. ensure `SHOT_MADE_FLAG` is int 0/1, `GAME_ID` is a consistent string format for later joins)
-- [ ] **T-009.3** Drop exact duplicate rows (can occur if a script reran partially)
-- [ ] **T-009.4** Save the consolidated table to `data/processed/shots_consolidated.parquet`
+- [x] **T-009.1** Write `pipeline/06_consolidate_shots.py` that loads and concatenates all files under `data/raw/shots/`
+- [x] **T-009.2** Standardize column names/types (e.g. ensure `SHOT_MADE_FLAG` is int 0/1, `GAME_ID` is a consistent string format for later joins) — also attaches the `SEASON` column here (from the folder name), since this is the one place the season is naturally known without an extra lookup; carried through every downstream join
+- [x] **T-009.3** Drop exact duplicate rows (can occur if a script reran partially)
+- [x] **T-009.4** Save the consolidated table to `data/processed/shots_consolidated.parquet`
+- **Numbering note:** T-010–T-014 don't have prescribed script filenames in this plan (only T-009's `06_consolidate_shots.py` and T-015's `07_train_test_split.py` are named explicitly), so they were implemented as `06a`–`06e` to sit clearly between the two fixed scripts while still sorting in run order. See `pipeline/README.md` (T-028.3) for the full run order.
+- **Verification note (applies to all of T-009–T-015):** stats.nba.com is unreachable from this build sandbox, so these scripts were verified end-to-end against realistic synthetic raw data (schema-matched fake shots/play-by-play/defender-prior files) rather than a live pull. The full chain (06 → 06a → 06b → 06c → 06d → 06e → 07) was run together and inspected at each step. **One real bug was caught this way:** the T-014 join (06e) fanned out rows 9x before a fix, because it joined only on `GAME_ID`+`GAME_EVENT_ID`; adding `SEASON` to the join key closed the gap defensively. Test data was deleted afterward so it won't interfere with the user's real pipeline run.
 
 ---
 
@@ -136,10 +138,10 @@
 **Depends on:** T-009
 **Context:** Shot angle isn't provided directly — it's derived from court coordinates. This is also where we filter out nonsensical outlier shots (e.g. full-court heaves) that would otherwise add noise the model can't meaningfully learn from.
 
-- [ ] **T-010.1** Compute `shot_angle` from `LOC_X`/`LOC_Y` using `atan2`, normalized to a consistent range (e.g. degrees from the basket, 0° = straight on)
-- [ ] **T-010.2** Bucket `SHOT_DISTANCE` into discrete ranges (e.g. 0-3ft, 3-10ft, 10-16ft, 16-3PT, 3PT, deep 3PT) for later joins with the defender-distance prior table
-- [ ] **T-010.3** Flag and exclude shots beyond a reasonable max distance (e.g. >40ft, near-halfcourt heaves) as a separate `is_heave` filter, excluded from training
-- [ ] **T-010.4** Save the enriched table (overwriting/extending `shots_consolidated.parquet` or a new `shots_geo.parquet`)
+- [x] **T-010.1** Compute `shot_angle` from `LOC_X`/`LOC_Y` using `atan2`, normalized to a consistent range (e.g. degrees from the basket, 0° = straight on) — `pipeline/06a_geo_features.py` + `pipeline/features.py::compute_shot_angle_degrees`; takes the absolute value since the court is left/right symmetric for shot difficulty
+- [x] **T-010.2** Bucket `SHOT_DISTANCE` into discrete ranges (e.g. 0-3ft, 3-10ft, 10-16ft, 16-3PT, 3PT, deep 3PT) for later joins with the defender-distance prior table — **deviation:** used the exact same 7 buckets as the pulled defender-distance prior (`"Less Than 5 ft."`, `"5-9 ft."`, ..., `">= 30 ft."` — see T-007.1) instead of the PRD's example zone-based buckets, so the T-013 join lines up without any relabeling
+- [x] **T-010.3** Flag and exclude shots beyond a reasonable max distance (e.g. >40ft, near-halfcourt heaves) as a separate `is_heave` filter, excluded from training — flagged here, actually excluded during T-014 assembly (kept in the intermediate file for inspection)
+- [x] **T-010.4** Save the enriched table (overwriting/extending `shots_consolidated.parquet` or a new `shots_geo.parquet`) — saved as `shots_geo.parquet`
 
 ---
 
@@ -148,11 +150,12 @@
 **Depends on:** T-009, T-006
 **Context:** Matches each shot to the live score at the moment it was taken, using the play-by-play data pulled in T-006, joined on `GAME_ID` and the closest preceding event/clock time.
 
-- [ ] **T-011.1** Load consolidated play-by-play data from `data/raw/playbyplay/`
-- [ ] **T-011.2** For each shot, join on `GAME_ID` + period + game clock to find the score state immediately prior to that shot event
-- [ ] **T-011.3** Compute `score_margin` (shooting team's score minus opponent's score at that moment)
-- [ ] **T-011.4** Handle unmatched shots gracefully (log count of shots that couldn't be matched to a score state; drop or impute with a documented fallback, e.g. 0)
-- [ ] **T-011.5** Save the score-margin-enriched join as `data/processed/shots_with_score_margin.parquet`
+- [x] **T-011.1** Load consolidated play-by-play data from `data/raw/playbyplay/`
+- [x] **T-011.2** For each shot, join on `GAME_ID` + period + game clock to find the score state immediately prior to that shot event — **deviation:** joined on the exact `GAME_ID` + `GAME_EVENT_ID`/`EVENTNUM` match instead of a fuzzy clock-time join. `shotchartdetail`'s `GAME_EVENT_ID` and `playbyplayv2`'s `EVENTNUM` refer to the same underlying per-game event log, so an exact-ID `merge_asof` (backward, strictly-before) is both simpler and more precise than matching on period+clock string
+- [x] **T-011.3** Compute `score_margin` (shooting team's score minus opponent's score at that moment) — uses `playbyplayv2`'s own `SCOREMARGIN` field (forward-filled per game) rather than recomputing from raw score progression, since it's already provided per event
+- [x] **T-011.4** Handle unmatched shots gracefully (log count of shots that couldn't be matched to a score state; drop or impute with a documented fallback, e.g. 0) — imputes 0, logs count/percentage
+- [x] **T-011.5** Save the score-margin-enriched join as `data/processed/shots_with_score_margin.parquet`
+- **Verification note:** the `merge_asof`(backward, strictly-before) join logic was unit-tested directly with a small synthetic play-by-play sequence to confirm it picks up the state from the *prior* event, not the shot's own event (see todo.md's T-009 verification note for the broader sandbox network constraint).
 
 ---
 
@@ -161,10 +164,10 @@
 **Depends on:** T-009
 **Context:** Builds the remaining straightforward per-shot context features that don't require any external join — period, time remaining, and home/away.
 
-- [ ] **T-012.1** Compute `time_remaining_in_period` (seconds) from `MINUTES_REMAINING`/`SECONDS_REMAINING`
-- [ ] **T-012.2** Derive `home_away` per shot by comparing the shooting player's team ID to the game's home/visitor team fields
-- [ ] **T-012.3** Encode `PERIOD` as a clean integer, handling overtime periods (5+) consistently
-- [ ] **T-012.4** Save as `data/processed/shots_context.parquet`
+- [x] **T-012.1** Compute `time_remaining_in_period` (seconds) from `MINUTES_REMAINING`/`SECONDS_REMAINING`
+- [x] **T-012.2** Derive `home_away` per shot by comparing the shooting player's team ID to the game's home/visitor team fields — team ID → abbreviation lookup via `nba_api.stats.static.teams` (bundled static data, no network call needed), compared against `HTM`
+- [x] **T-012.3** Encode `PERIOD` as a clean integer, handling overtime periods (5+) consistently — adds an `is_overtime` boolean flag for periods 5+
+- [x] **T-012.4** Save as `data/processed/shots_context.parquet`
 
 ---
 
@@ -173,9 +176,9 @@
 **Depends on:** T-010, T-007
 **Context:** Attaches the league-average FG% prior (from the aggregated tracking dashboards) to each shot, joined on season + shot-distance bucket, as the supplementary defender-proximity approximation discussed in the PRD.
 
-- [ ] **T-013.1** Load the per-season defender-distance prior tables from `data/raw/defender_priors/`
-- [ ] **T-013.2** Join each shot (by season + `shot_distance_bucket` from T-010.2) to its corresponding league-average FG% prior across defender-distance buckets — if multiple defender-distance buckets exist per shot-distance bucket, use a weighted/blended average as the single `defender_distance_prior` feature value (documented clearly as an approximation)
-- [ ] **T-013.3** Save as `data/processed/shots_with_prior.parquet`
+- [x] **T-013.1** Load the per-season defender-distance prior tables from `data/raw/defender_priors/`
+- [x] **T-013.2** Join each shot (by season + `shot_distance_bucket` from T-010.2) to its corresponding league-average FG% prior across defender-distance buckets — if multiple defender-distance buckets exist per shot-distance bucket, use a weighted/blended average as the single `defender_distance_prior` feature value (documented clearly as an approximation) — implemented as summing `fgm`/`fga` across `close_def_dist_range` buckets per (season, shot_dist_range) cell, which is mathematically the attempt-weighted average
+- [x] **T-013.3** Save as `data/processed/shots_with_prior.parquet`
 
 ---
 
@@ -184,11 +187,11 @@
 **Depends on:** T-010, T-011, T-012, T-013
 **Context:** Merges every feature stream built so far (geometric, score margin, game-situation, defender prior) into the single table that training will consume, and finalizes categorical encoding.
 
-- [ ] **T-014.1** Join all feature tables from T-010, T-011, T-012, T-013 on the shared shot identifier (`GAME_ID` + `GAME_EVENT_ID`)
-- [ ] **T-014.2** One-hot or target-encode categorical features (`ACTION_TYPE`, `SHOT_ZONE_BASIC`/`SHOT_ZONE_AREA`, `home_away`)
-- [ ] **T-014.3** Drop rows with unresolved/missing critical features (documenting the drop rate)
-- [ ] **T-014.4** Attach a `season` label column to every row (needed for the chronological split next)
-- [ ] **T-014.5** Save the final modeling table to `data/processed/features_final.parquet`
+- [x] **T-014.1** Join all feature tables from T-010, T-011, T-012, T-013 on the shared shot identifier (`GAME_ID` + `GAME_EVENT_ID`) — **deviation:** joined on `GAME_ID` + `GAME_EVENT_ID` + `SEASON` (see the T-009 verification note — a real fan-out bug was caught and fixed this way during integration testing)
+- [x] **T-014.2** One-hot or target-encode categorical features (`ACTION_TYPE`, `SHOT_ZONE_BASIC`/`SHOT_ZONE_AREA`, `home_away`) — one-hot (via `pd.get_dummies`), chosen over target encoding to avoid any target-leakage risk
+- [x] **T-014.3** Drop rows with unresolved/missing critical features (documenting the drop rate) — also where `is_heave` rows are actually excluded (flagged, not dropped, back in T-010)
+- [x] **T-014.4** Attach a `season` label column to every row (needed for the chronological split next) — `SEASON` was attached earlier during T-009 consolidation and carried through every join since; this step just asserts it's present rather than re-deriving it
+- [x] **T-014.5** Save the final modeling table to `data/processed/features_final.parquet`
 
 ---
 
@@ -197,9 +200,10 @@
 **Depends on:** T-014
 **Context:** Implements the PRD's core validation decision — train on the two older seasons, test on the most recent — to avoid leakage and produce a defensible evaluation story.
 
-- [ ] **T-015.1** Write `pipeline/07_train_test_split.py` that splits `features_final.parquet` into train (rows where `season` is in `TRAIN_SEASONS`) and test (rows where `season == TEST_SEASON`) using the config constants from T-003.1
-- [ ] **T-015.2** Save `data/processed/train.parquet` and `data/processed/test.parquet`
-- [ ] **T-015.3** Log basic stats (row counts, overall make-rate) for both splits to catch any obviously broken split (e.g. wildly different base rates)
+- [x] **T-015.1** Write `pipeline/07_train_test_split.py` that splits `features_final.parquet` into train (rows where `season` is in `TRAIN_SEASONS`) and test (rows where `season == TEST_SEASON`) using the config constants from T-003.1
+- [x] **T-015.2** Save `data/processed/train.parquet` and `data/processed/test.parquet`
+- [x] **T-015.3** Log basic stats (row counts, overall make-rate) for both splits to catch any obviously broken split (e.g. wildly different base rates) — also raises if either split is empty and warns if make-rates differ by >5%
+- **Verification note:** full chain (06→06a→06b→06c→06d→06e→07) run end-to-end against synthetic data; final train/test row counts and make-rates were sane and consistent with the input after the T-014 join fix (see above).
 
 ---
 
