@@ -382,10 +382,10 @@
 **Depends on:** T-024
 **Context:** Sets up the app skeleton once the DB schema contract (T-024) is known, so routes and templates can be built against a stable schema even while the pipeline (Phase 4) finishes running.
 
-- [ ] **T-029.1** Create `app/` structure: `app/__init__.py` (app factory), `app/routes/`, `app/templates/`, `app/static/`, `app/queries.py`
-- [ ] **T-029.2** Implement the Flask app factory pattern (`create_app()`) with basic config loading
-- [ ] **T-029.3** Add an entry point `app/run.py` (or `wsgi.py`) to start the dev server
-- [ ] **T-029.4** Verify the app boots and serves a trivial "hello" route before building real pages
+- [x] **T-029.1** Create `app/` structure: `app/__init__.py` (app factory), `app/routes/`, `app/templates/`, `app/static/`, `app/queries.py`
+- [x] **T-029.2** Implement the Flask app factory pattern (`create_app()`) with basic config loading
+- [x] **T-029.3** Add an entry point `app/run.py` (or `wsgi.py`) to start the dev server — also the module gunicorn targets later (`gunicorn app.run:app`, see T-047)
+- [x] **T-029.4** Verify the app boots and serves a trivial "hello" route before building real pages — implemented as `GET /health`; ran via Flask's test client and confirmed a 200 JSON response
 
 ---
 
@@ -394,12 +394,13 @@
 **Depends on:** T-029, T-024
 **Context:** Centralizes all DB access in one module so route handlers stay thin and query logic (joins, filters, aggregations) isn't duplicated across pages.
 
-- [ ] **T-030.1** In `app/queries.py`, implement a connection helper (using Python's built-in `sqlite3`, read-only connection since the app never writes)
-- [ ] **T-030.2** Implement `get_player_shots(player_id, season)` — returns shots for a player, optionally filtered by season
-- [ ] **T-030.3** Implement `get_leaderboard(season_or_career, min_attempts)` — returns qualified players sorted by skill differential
-- [ ] **T-030.4** Implement `get_explorer_shots(season, zone, player_id=None, team_id=None)` — returns filtered shots for the Shot Explorer hexbin
-- [ ] **T-030.5** Implement `get_model_metrics()`, `get_calibration_bins()`, `get_feature_importance()` for the Methodology page
-- [ ] **T-030.6** Implement `search_players(query)` for the Player Page search box
+- [x] **T-030.1** In `app/queries.py`, implement a connection helper (using Python's built-in `sqlite3`, read-only connection since the app never writes) — opens with the `file:...?mode=ro` URI flag so a bug elsewhere in the app literally cannot write to the pipeline-built DB, not just "by convention"
+- [x] **T-030.2** Implement `get_player_shots(player_id, season)` — returns shots for a player, optionally filtered by season
+- [x] **T-030.3** Implement `get_leaderboard(season_or_career, min_attempts)` — returns qualified players sorted by skill differential
+- [x] **T-030.4** Implement `get_explorer_shots(season, zone, player_id=None, team_id=None)` — returns filtered shots for the Shot Explorer hexbin — `team_id` filtering joins through `player_teams` since `shots` itself doesn't store team directly (a player's team can change mid-season via trade, so it's not a static per-shot column)
+- [x] **T-030.5** Implement `get_model_metrics()`, `get_calibration_bins()`, `get_feature_importance()` for the Methodology page
+- [x] **T-030.6** Implement `search_players(query)` for the Player Page search box
+- Also added `get_player()`, `get_seasons()`, `get_shot_zones()` helpers (dropdown population, Player Page lookup) needed by Phase 6 routes but not explicitly called out as their own subtask.
 
 ---
 
@@ -408,9 +409,9 @@
 **Depends on:** T-029
 **Context:** Keeps environment-specific config (DB path, debug flag) out of hardcoded values, matching best practice and preparing for the eventual Render deployment.
 
-- [ ] **T-031.1** Create `app/config.py` with `DB_PATH`, `DEBUG` settings, loaded from environment variables via `python-dotenv`
-- [ ] **T-031.2** Create `.env.example` documenting any configurable variables
-- [ ] **T-031.3** Wire config into the app factory from T-029.2
+- [x] **T-031.1** Create `app/config.py` with `DB_PATH`, `DEBUG` settings, loaded from environment variables via `python-dotenv` — `DB_PATH` defaults to `pipeline.config.DB_PATH` (imported directly, not duplicated) so the app and pipeline can never silently disagree on where the database lives
+- [x] **T-031.2** Create `.env.example` documenting any configurable variables — `app/.env.example`
+- [x] **T-031.3** Wire config into the app factory from T-029.2
 
 ---
 
@@ -419,10 +420,10 @@
 **Depends on:** T-029
 **Context:** Establishes the shared visual shell (nav, base layout, dark NBA/ESPN-inspired styling) once, so every page built afterward inherits consistent styling instead of each page reinventing layout.
 
-- [ ] **T-032.1** Create `app/templates/base.html` with a shared `<head>`, nav placeholder, and content block
-- [ ] **T-032.2** Create `app/static/css/main.css` implementing the dark theme: dark background, team-color-friendly accent variables, typography for bold stat callouts
-- [ ] **T-032.3** Build a shared nav bar component (links to Landing, Shot Explorer, Leaderboard, Player search, Methodology) included in `base.html`
-- [ ] **T-032.4** Verify the base template renders correctly with placeholder content
+- [x] **T-032.1** Create `app/templates/base.html` with a shared `<head>`, nav placeholder, and content block
+- [x] **T-032.2** Create `app/static/css/main.css` implementing the dark theme: dark background, team-color-friendly accent variables, typography for bold stat callouts
+- [x] **T-032.3** Build a shared nav bar component (links to Landing, Shot Explorer, Leaderboard, Player search, Methodology) included in `base.html`
+- [x] **T-032.4** Verify the base template renders correctly with placeholder content — **deferred and completed together with Phase 6:** the nav's `url_for(...)` calls reference the Landing/Explorer/Leaderboard/Player/Methodology blueprint endpoints directly (not a placeholder nav), so rendering it standalone before those blueprints exist would just raise `BuildError`. Verified once those routes were built — see the Phase 6 verification note.
 
 ---
 
@@ -431,9 +432,9 @@
 **Depends on:** T-032
 **Context:** Sets up the JS charting library once at the app-shell level, since every core page (Explorer, Player, Leaderboard sparkline if any) needs interactive charts.
 
-- [ ] **T-033.1** Add Plotly.js via CDN (or vendored static file) in `base.html`
-- [ ] **T-033.2** Build a small reusable JS helper (`app/static/js/hexbin_chart.js`) that takes shot data (x/y court coordinates + xFG%/make flag) and renders a hexbin/heatmap Plotly chart with hover tooltips
-- [ ] **T-033.3** Test the helper against a small hardcoded sample dataset to confirm rendering and tooltips work before wiring it to real data
+- [x] **T-033.1** Add Plotly.js via CDN (or vendored static file) in `base.html`
+- [x] **T-033.2** Build a small reusable JS helper (`app/static/js/hexbin_chart.js`) that takes shot data (x/y court coordinates + xFG%/make flag) and renders a hexbin/heatmap Plotly chart with hover tooltips — approximates a true hexbin with a Plotly `histogram2d` density layer (Plotly has no native hexbin trace type) plus a transparent scatter overlay carrying the per-shot hover text
+- [x] **T-033.3** Test the helper against a small hardcoded sample dataset to confirm rendering and tooltips work before wiring it to real data — **actually rendered in a real browser** via a temporary static test harness served locally and inspected with the preview tool: confirmed the density heatmap + scatter dots render correctly against the dark theme, and confirmed (via reading Plotly's own trace data back out) that hover text is correctly formatted, e.g. `"Layup Shot<br>Distance: 17.8 ft<br>xFG%: 99.9%<br>Result: Missed"`. Test harness file deleted afterward — not part of the shipped app.
 
 ---
 
@@ -446,9 +447,10 @@
 **Depends on:** T-032, T-033
 **Context:** The entry point users land on first — a brief project intro and links into the three core features, per the PRD's app flow.
 
-- [ ] **T-034.1** Create `app/routes/landing.py` with a `/` route rendering `templates/landing.html`
-- [ ] **T-034.2** Write landing copy: project summary, links/cards to Shot Explorer, Leaderboard, Player search, Methodology
-- [ ] **T-034.3** Style the landing page using the base theme from T-032
+- [x] **T-034.1** Create `app/routes/landing.py` with a `/` route rendering `templates/landing.html`
+- [x] **T-034.2** Write landing copy: project summary, links/cards to Shot Explorer, Leaderboard, Player search, Methodology
+- [x] **T-034.3** Style the landing page using the base theme from T-032
+- **Verification note (applies to all of T-034–T-042):** the whole Flask app was verified two ways: (1) Flask's test client hit every route (`/`, `/explorer/`, `/explorer/data`, `/leaderboard/`, `/players/`, `/players/search`, `/players/<id>`, `/players/9999` for the not-found case, `/methodology/`) against a real (synthetic) populated SQLite DB and got correct status codes + sane content; (2) the app was actually run and viewed in a real browser via the preview tool at a genuine desktop viewport (1440×900) — landing, Shot Explorer (with live hexbin chart + all 4 filters), Leaderboard (with correct green/red differential coloring), Player Page (stat callouts + chart), and Methodology (metrics table + calibration image) all screenshotted and confirmed rendering correctly. This is also what completes T-032.4's deferred base-template verification, since the nav's `url_for(...)` calls need these blueprints to exist.
 
 ---
 
@@ -457,9 +459,9 @@
 **Depends on:** T-030, T-028
 **Context:** Wires the Explorer page's filter controls (season, shot zone, optional player/team) to the `get_explorer_shots` query built in T-030, against the fully populated DB from T-028.
 
-- [ ] **T-035.1** Create `app/routes/explorer.py` with a `/explorer` route accepting query params: `season`, `zone`, `player_id`, `team_id`
-- [ ] **T-035.2** Call `get_explorer_shots()` with the parsed filters; default to league-wide aggregate when no player/team is selected
-- [ ] **T-035.3** Return shot data as JSON (for the frontend chart to consume via fetch) plus render the page shell with filter dropdowns populated from the DB (season list, zone list, player list)
+- [x] **T-035.1** Create `app/routes/explorer.py` with a `/explorer` route accepting query params: `season`, `zone`, `player_id`, `team_id` — **deviation:** split into two routes instead of one — `GET /explorer/` renders the page shell, `GET /explorer/data` returns the JSON (matches T-035.3's "plus" wording — both were needed, cleaner as separate concerns than one route branching on `Accept` headers)
+- [x] **T-035.2** Call `get_explorer_shots()` with the parsed filters; default to league-wide aggregate when no player/team is selected
+- [x] **T-035.3** Return shot data as JSON (for the frontend chart to consume via fetch) plus render the page shell with filter dropdowns populated from the DB (season list, zone list, player list) — team list added too (not explicitly called out in T-030 but needed for the team filter in T-036.1)
 
 ---
 
@@ -468,10 +470,10 @@
 **Depends on:** T-035, T-033
 **Context:** The frontend half of the Explorer — renders the hexbin chart using the helper from T-033 and wires up the filter controls to re-fetch and re-render.
 
-- [ ] **T-036.1** Create `templates/explorer.html` extending `base.html`, with filter dropdowns (season, zone, player/team) and a chart container
-- [ ] **T-036.2** On filter change, fetch updated shot data from the `/explorer` JSON endpoint and re-render the hexbin chart via `hexbin_chart.js`
-- [ ] **T-036.3** Confirm hover tooltips show shot distance, action type, `xfg_pct`, and actual result per the PRD spec
-- [ ] **T-036.4** Manually test all filter combinations for correctness (empty states, single-player view, full league view)
+- [x] **T-036.1** Create `templates/explorer.html` extending `base.html`, with filter dropdowns (season, zone, player/team) and a chart container
+- [x] **T-036.2** On filter change, fetch updated shot data from the `/explorer` JSON endpoint and re-render the hexbin chart via `hexbin_chart.js`
+- [x] **T-036.3** Confirm hover tooltips show shot distance, action type, `xfg_pct`, and actual result per the PRD spec — all 4 fields present in the tooltip text (verified in T-033.3's real-browser test)
+- [x] **T-036.4** Manually test all filter combinations for correctness (empty states, single-player view, full league view) — tested no-filter (league-wide, 1301 shots), season+player combo, and confirmed real browser rendering at desktop width (1440px) with all 4 filter dropdowns visible and functional. **Found and fixed a real layout bug this way:** the filter row (`.flex-row`) didn't wrap, so at narrower widths the 4th filter (Team) was pushed off-screen; added `flex-wrap: wrap` to `main.css`.
 
 ---
 
@@ -480,9 +482,9 @@
 **Depends on:** T-030, T-027, T-028
 **Context:** Serves the pre-aggregated leaderboard table (T-027) filtered by qualification threshold and season scope.
 
-- [ ] **T-037.1** Create `app/routes/leaderboard.py` with a `/leaderboard` route accepting a `season` query param (specific season or `"career"` for the 3-year combined view)
-- [ ] **T-037.2** Call `get_leaderboard()` filtered to `qualified = true` rows, sorted by skill differential descending
-- [ ] **T-037.3** Render the page with the ranked table and a season selector control
+- [x] **T-037.1** Create `app/routes/leaderboard.py` with a `/leaderboard` route accepting a `season` query param (specific season or `"career"` for the 3-year combined view) — defaults to `"career"` when the param is omitted
+- [x] **T-037.2** Call `get_leaderboard()` filtered to `qualified = true` rows, sorted by skill differential descending
+- [x] **T-037.3** Render the page with the ranked table and a season selector control
 
 ---
 
@@ -491,10 +493,10 @@
 **Depends on:** T-037, T-032
 **Context:** Presents the ranked list clearly and links each row to the corresponding Player Page, completing the leaderboard→player navigation flow from the PRD.
 
-- [ ] **T-038.1** Create `templates/leaderboard.html` rendering the ranked table (rank, player name, attempts, actual FG%, expected FG%, differential)
-- [ ] **T-038.2** Wire the season selector to reload the page/route with the chosen season param
-- [ ] **T-038.3** Make each player row a link to `/players/<player_id>`
-- [ ] **T-038.4** Style using the base theme; highlight top/bottom performers with accent colors
+- [x] **T-038.1** Create `templates/leaderboard.html` rendering the ranked table (rank, player name, attempts, actual FG%, expected FG%, differential)
+- [x] **T-038.2** Wire the season selector to reload the page/route with the chosen season param — plain form auto-submit on change (full page reload), simpler than a fetch-based reload since the whole table needs new server-rendered rows anyway
+- [x] **T-038.3** Make each player row a link to `/players/<player_id>`
+- [x] **T-038.4** Style using the base theme; highlight top/bottom performers with accent colors — differential column colored green/red by sign; verified the actual computed colors in a real rendered page (`rgb(63,185,80)` / `rgb(248,81,73)`), not just that the CSS class was present
 
 ---
 
@@ -503,10 +505,10 @@
 **Depends on:** T-030, T-028
 **Context:** Implements player lookup (via search or direct link from the Leaderboard) and the data query for a single player's shot profile.
 
-- [ ] **T-039.1** Create `app/routes/player.py` with a `/players/<player_id>` route, optional `season` query param
-- [ ] **T-039.2** Call `get_player_shots()` and compute the player's actual FG% vs. average `xfg_pct`, overall and broken down by shot zone
-- [ ] **T-039.3** Implement a `/players/search?q=` endpoint calling `search_players()`, returning JSON matches for a search-as-you-type box
-- [ ] **T-039.4** Handle the "player not found" / "no shots in this season" edge cases gracefully
+- [x] **T-039.1** Create `app/routes/player.py` with a `/players/<player_id>` route, optional `season` query param — also added `GET /players/` as the nav's "Players" landing/search page (not its own subtask here, but needed since the nav links somewhere before a specific player is chosen)
+- [x] **T-039.2** Call `get_player_shots()` and compute the player's actual FG% vs. average `xfg_pct`, overall and broken down by shot zone
+- [x] **T-039.3** Implement a `/players/search?q=` endpoint calling `search_players()`, returning JSON matches for a search-as-you-type box
+- [x] **T-039.4** Handle the "player not found" / "no shots in this season" edge cases gracefully — not-found returns a real 404 (verified via test client), no-shots renders the page with an explicit empty-state message instead of crashing
 
 ---
 
@@ -515,10 +517,10 @@
 **Depends on:** T-039, T-033
 **Context:** The frontend half of the Player Page — visualizes the individual player's shot profile and the actual-vs-expected comparison called out as a core PRD feature.
 
-- [ ] **T-040.1** Create `templates/player.html` with a search box (wired to the `/players/search` endpoint), season filter, hexbin shot chart (via `hexbin_chart.js`), and a stats panel
-- [ ] **T-040.2** Render the actual vs. expected FG% comparison overall and per shot zone (table or small bar chart)
-- [ ] **T-040.3** Wire the season filter to reload data without a full page navigation (fetch + re-render, consistent with the Explorer pattern)
-- [ ] **T-040.4** Manually test with a high-volume player and a low-volume/edge-case player
+- [x] **T-040.1** Create `templates/player.html` with a search box (wired to the `/players/search` endpoint), season filter, hexbin shot chart (via `hexbin_chart.js`), and a stats panel — **deviation:** the search box lives on the separate `/players/` landing page (`player_search.html`), not duplicated onto every player detail page — a user already viewing a specific player's page navigates back to search rather than re-searching in place; simpler and avoids duplicating the search JS
+- [x] **T-040.2** Render the actual vs. expected FG% comparison overall and per shot zone (table or small bar chart) — table
+- [x] **T-040.3** Wire the season filter to reload data without a full page navigation (fetch + re-render, consistent with the Explorer pattern) — **deviation:** full page reload via form auto-submit instead, same reasoning as the Leaderboard's season selector (T-038.2) — the stat panel numbers themselves need a fresh server computation either way, so a fetch-only reload wouldn't actually save a round trip here (unlike Explorer, where only the chart re-renders)
+- [x] **T-040.4** Manually test with a high-volume player and a low-volume/edge-case player — tested a player with shots (stat panel + chart render correctly), a nonexistent player id (clean 404, not a crash), and specifically a real player filtered to a season with zero shots for them (renders the "no shots found" empty state at 200, not a 500) via a purpose-built minimal test DB
 
 ---
 
@@ -527,8 +529,8 @@
 **Depends on:** T-026, T-030
 **Context:** Serves the model transparency data (metrics, calibration bins, feature importance) from the DB tables populated in T-026.
 
-- [ ] **T-041.1** Create `app/routes/methodology.py` with a `/methodology` route calling `get_model_metrics()`, `get_calibration_bins()`, `get_feature_importance()`
-- [ ] **T-041.2** Pass the static plot image paths (`calibration_plot.png`, `feature_importance.png` from T-026.4) into the template context as a fallback/complement to any interactive charts
+- [x] **T-041.1** Create `app/routes/methodology.py` with a `/methodology` route calling `get_model_metrics()`, `get_calibration_bins()`, `get_feature_importance()` — metrics reshaped into `{context: {metric_name: value}}` in the route so the template can render model/baseline side by side without doing that grouping itself
+- [x] **T-041.2** Pass the static plot image paths (`calibration_plot.png`, `feature_importance.png` from T-026.4) into the template context as a fallback/complement to any interactive charts — **simplified:** images only, no interactive Plotly re-render of the calibration bins on this page (the static plot from T-020 already exists and is sufficient; `calibration_bins`/`feature_importance` DB tables are still queried and available for a future interactive version)
 
 ---
 
@@ -537,10 +539,10 @@
 **Depends on:** T-041, T-020, T-021, T-032
 **Context:** Presents the model's validation story clearly — this is the page that carries the "demonstrate modeling skill" goal of the whole project, so it needs to read cleanly to a technical reviewer.
 
-- [ ] **T-042.1** Create `templates/methodology.html` displaying headline metrics (log loss, AUC, Brier score) with the baseline comparison from T-019.3 shown side-by-side
-- [ ] **T-042.2** Render the calibration plot (image or Plotly-rendered from `calibration_bins` data) and feature importance chart
-- [ ] **T-042.3** Write the plain-language section explaining data limitations (no true per-shot defender distance/shot clock, use of `ACTION_TYPE` as contest proxy, league-average prior approximation) per the PRD's transparency requirement
-- [ ] **T-042.4** Style consistently with the base theme
+- [x] **T-042.1** Create `templates/methodology.html` displaying headline metrics (log loss, AUC, Brier score) with the baseline comparison from T-019.3 shown side-by-side
+- [x] **T-042.2** Render the calibration plot (image or Plotly-rendered from `calibration_bins` data) and feature importance chart — static images (see T-041.2 note)
+- [x] **T-042.3** Write the plain-language section explaining data limitations (no true per-shot defender distance/shot clock, use of `ACTION_TYPE` as contest proxy, league-average prior approximation) per the PRD's transparency requirement
+- [x] **T-042.4** Style consistently with the base theme — visually confirmed in the real-browser screenshot pass (see the note on T-034)
 
 ---
 

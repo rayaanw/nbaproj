@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}NBA Shot Quality Model{% endblock %}
+{% block content %}
+<section class="mb-4">
+  <h1>NBA Shot Quality Model &amp; Dashboard</h1>
+  <p class="stat-label" style="font-size:1rem; text-transform:none; letter-spacing:normal;">
+    A model that predicts the probability any given NBA shot goes in (expected FG%, xFG%) based on
+    shot difficulty &mdash; independent of who took it &mdash; so you can compare a player's actual
+    FG% against their expected FG% to isolate pure shot-making skill from shot selection.
+  </p>
+</section>
+
+<section class="card-grid">
+  <a class="card" href="{{ url_for('explorer.index') }}">
+    <div class="stat-label">Explore</div>
+    <h2>Shot Explorer</h2>
+    <p>League-wide hexbin shot chart. Filter by season, zone, player, or team.</p>
+  </a>
+
+  <a class="card" href="{{ url_for('leaderboard.index') }}">
+    <div class="stat-label">Rank</div>
+    <h2>Leaderboard</h2>
+    <p>Players ranked by actual FG% &minus; expected FG% &mdash; pure shot-making skill.</p>
+  </a>
+
+  <a class="card" href="{{ url_for('player.search_page') }}">
+    <div class="stat-label">Search</div>
+    <h2>Player Page</h2>
+    <p>A player's shot chart and actual-vs-expected breakdown, by zone and season.</p>
+  </a>
+
+  <a class="card" href="{{ url_for('methodology.index') }}">
+    <div class="stat-label">Reference</div>
+    <h2>Methodology</h2>
+    <p>Model metrics, calibration, feature importance, and data limitations.</p>
+  </a>
+</section>
+{% endblock %}

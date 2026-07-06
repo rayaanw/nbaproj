@@ -1,0 +1,231 @@
+/* T-032.2: dark theme, NBA.com/ESPN-inspired — dark background, team-color-
+   friendly accent variables, bold stat callouts. Desktop-first (T-045). */
+
+:root {
+  --color-bg: #0e1117;
+  --color-bg-elevated: #161b22;
+  --color-bg-card: #1c2128;
+  --color-border: #2d333b;
+  --color-text: #e6edf3;
+  --color-text-muted: #8b949e;
+  --color-accent: #ff6b35; /* warm orange — NBA-ish, works as a neutral team-agnostic accent */
+  --color-accent-hover: #ff8c5a;
+  --color-positive: #3fb950; /* "owed to you" / skill above expected */
+  --color-negative: #f85149; /* "you owe" / skill below expected */
+  --color-link: #58a6ff;
+
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-width: 1024px; /* desktop-first; see T-045 for responsive QA notes */
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+/* --- Nav bar (T-032.3) --- */
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.navbar-brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+.navbar-links {
+  display: flex;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar-links a {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.navbar-links a:hover,
+.navbar-links a.active {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+/* --- Cards --- */
+
+.card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+/* --- Stat callouts (T-044.3) --- */
+
+.stat-callout {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat-label {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-1);
+}
+
+.text-positive {
+  color: var(--color-positive);
+}
+
+.text-negative {
+  color: var(--color-negative);
+}
+
+/* --- Tables --- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+th {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+tr:hover td {
+  background: var(--color-bg-elevated);
+}
+
+/* --- Forms / filters --- */
+
+select,
+input[type="text"],
+input[type="search"] {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+button,
+.btn {
+  background: var(--color-accent);
+  color: #0e1117;
+  border: none;
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-4);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover,
+.btn:hover {
+  background: var(--color-accent-hover);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+/* --- Footer (T-043.4) --- */
+
+.footer {
+  text-align: center;
+  padding: var(--space-5);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-6);
+}
+
+/* --- Layout helpers --- */
+
+.flex-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mt-4 {
+  margin-top: var(--space-4);
+}
+.mb-4 {
+  margin-bottom: var(--space-4);
+}
+
+/* --- Responsive QA (T-045): avoid hard breakage down to tablet width --- */
+@media (max-width: 900px) {
+  body {
+    min-width: 0;
+  }
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+  .navbar {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+}

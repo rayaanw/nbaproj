@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Shot Explorer — NBA Shot Quality Model{% endblock %}
+{% block content %}
+<h1>Shot Explorer</h1>
+<p class="stat-label" style="font-size:0.95rem; text-transform:none; letter-spacing:normal;">
+  League-wide by default. Filter by season, zone, player, or team &mdash; hover a shot for details.
+</p>
+
+<div class="flex-row mb-4">
+  <label>
+    Season
+    <select id="filter-season">
+      <option value="">All seasons</option>
+      {% for season in seasons %}
+      <option value="{{ season }}">{{ season }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label>
+    Zone
+    <select id="filter-zone">
+      <option value="">All zones</option>
+      {% for zone in zones %}
+      <option value="{{ zone }}">{{ zone }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label>
+    Player
+    <select id="filter-player">
+      <option value="">All players</option>
+      {% for player in players %}
+      <option value="{{ player.player_id }}">{{ player.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label>
+    Team
+    <select id="filter-team">
+      <option value="">All teams</option>
+      {% for team in teams %}
+      <option value="{{ team.team_id }}">{{ team.team_abbreviation }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</div>
+
+<div class="card">
+  <div id="explorer-chart"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/hexbin_chart.js') }}"></script>
+<script>
+  const seasonEl = document.getElementById('filter-season');
+  const zoneEl = document.getElementById('filter-zone');
+  const playerEl = document.getElementById('filter-player');
+  const teamEl = document.getElementById('filter-team');
+
+  function loadExplorerData() {
+    const params = new URLSearchParams();
+    if (seasonEl.value) params.set('season', seasonEl.value);
+    if (zoneEl.value) params.set('zone', zoneEl.value);
+    if (playerEl.value) params.set('player_id', playerEl.value);
+    if (teamEl.value) params.set('team_id', teamEl.value);
+
+    fetch(`{{ url_for('explorer.data') }}?${params.toString()}`)
+      .then((res) => res.json())
+      .then((shots) => {
+        renderHexbinChart('explorer-chart', shots, { title: 'Shot Explorer' });
+      });
+  }
+
+  [seasonEl, zoneEl, playerEl, teamEl].forEach((el) => el.addEventListener('change', loadExplorerData));
+  loadExplorerData();
+</script>
+{% endblock %}

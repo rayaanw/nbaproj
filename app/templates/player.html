@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name }} — NBA Shot Quality Model{% endblock %}
+{% block content %}
+<h1>{{ player.name }}</h1>
+
+<form method="get" class="mb-4">
+  <label>
+    Season
+    <select name="season" onchange="this.form.submit()">
+      <option value="" {{ 'selected' if not selected_season else '' }}>All seasons</option>
+      {% for season in seasons %}
+      <option value="{{ season }}" {{ 'selected' if selected_season == season else '' }}>{{ season }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+
+{% if not has_shots %}
+<div class="card">
+  <p class="stat-label">No shots found for this player{{ ' in ' + selected_season if selected_season else '' }}.</p>
+</div>
+{% else %}
+<div class="card-grid mb-4">
+  <div class="card">
+    <div class="stat-label">Actual FG%</div>
+    <div class="stat-callout">{{ "%.1f"|format(overall.actual_fg_pct * 100) }}%</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Expected FG% (xFG%)</div>
+    <div class="stat-callout">{{ "%.1f"|format(overall.expected_fg_pct * 100) }}%</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Differential</div>
+    <div class="stat-callout {{ 'text-positive' if overall.differential >= 0 else 'text-negative' }}">
+      {{ "%+.1f"|format(overall.differential * 100) }}%
+    </div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Attempts</div>
+    <div class="stat-callout">{{ overall.attempts }}</div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div id="player-chart"></div>
+</div>
+
+<div class="card">
+  <h2>By Shot Zone</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Zone</th>
+        <th>Attempts</th>
+        <th>Actual FG%</th>
+        <th>Expected FG%</th>
+        <th>Differential</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for z in by_zone %}
+      <tr>
+        <td>{{ z.zone }}</td>
+        <td>{{ z.attempts }}</td>
+        <td>{{ "%.1f"|format(z.actual_fg_pct * 100) }}%</td>
+        <td>{{ "%.1f"|format(z.expected_fg_pct * 100) }}%</td>
+        <td class="{{ 'text-positive' if z.differential >= 0 else 'text-negative' }}">
+          {{ "%+.1f"|format(z.differential * 100) }}%
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if has_shots %}
+<script src="{{ url_for('static', filename='js/hexbin_chart.js') }}"></script>
+<script>
+  const params = new URLSearchParams();
+  {% if selected_season %}params.set('season', '{{ selected_season }}');{% endif %}
+  params.set('player_id', '{{ player.player_id }}');
+
+  fetch(`{{ url_for('explorer.data') }}?${params.toString()}`)
+    .then((res) => res.json())
+    .then((shots) => {
+      renderHexbinChart('player-chart', shots, { title: '{{ player.name }} — Shot Chart' });
+    });
+</script>
+{% endif %}
+{% endblock %}

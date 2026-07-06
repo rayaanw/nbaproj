@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}NBA Shot Quality Model{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <!-- T-033.1: Plotly.js via CDN, available to every page that extends this base -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <nav class="navbar">
+    <a class="navbar-brand" href="{{ url_for('landing.index') }}">NBA Shot Quality Model</a>
+    <ul class="navbar-links">
+      <li><a href="{{ url_for('explorer.index') }}" class="{{ 'active' if active_page == 'explorer' else '' }}">Shot Explorer</a></li>
+      <li><a href="{{ url_for('leaderboard.index') }}" class="{{ 'active' if active_page == 'leaderboard' else '' }}">Leaderboard</a></li>
+      <li><a href="{{ url_for('player.search_page') }}" class="{{ 'active' if active_page == 'player' else '' }}">Players</a></li>
+      <li><a href="{{ url_for('methodology.index') }}" class="{{ 'active' if active_page == 'methodology' else '' }}">Methodology</a></li>
+    </ul>
+  </nav>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    NBA Shot Quality Model &mdash; a portfolio project. Predictions are a model estimate, not a
+    guarantee. See the <a href="{{ url_for('methodology.index') }}">Methodology page</a> for data
+    limitations and how the model was built.
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

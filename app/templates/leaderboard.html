@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard — NBA Shot Quality Model{% endblock %}
+{% block content %}
+<h1>Leaderboard</h1>
+<p class="stat-label" style="font-size:0.95rem; text-transform:none; letter-spacing:normal;">
+  Ranked by actual FG% &minus; expected FG% (shot-making skill). Qualification requires enough
+  attempts (see the Methodology page for the exact threshold).
+</p>
+
+<form method="get" class="mb-4">
+  <label>
+    Season
+    <select name="season" onchange="this.form.submit()">
+      <option value="{{ career_label }}" {{ 'selected' if selected_season == career_label else '' }}>
+        3-year combined (career)
+      </option>
+      {% for season in seasons %}
+      <option value="{{ season }}" {{ 'selected' if selected_season == season else '' }}>{{ season }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+
+<div class="card">
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Player</th>
+        <th>Attempts</th>
+        <th>Actual FG%</th>
+        <th>Expected FG%</th>
+        <th>Differential</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><a href="{{ url_for('player.detail', player_id=row.player_id) }}">{{ row.name }}</a></td>
+        <td>{{ row.attempts }}</td>
+        <td>{{ "%.1f"|format(row.actual_fg_pct * 100) }}%</td>
+        <td>{{ "%.1f"|format(row.expected_fg_pct * 100) }}%</td>
+        <td class="{{ 'text-positive' if row.skill_differential >= 0 else 'text-negative' }}">
+          {{ "%+.1f"|format(row.skill_differential * 100) }}%
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="stat-label">No qualified players for this season yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

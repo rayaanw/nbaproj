@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Methodology — NBA Shot Quality Model{% endblock %}
+{% block content %}
+<h1>Methodology</h1>
+
+<h2>Headline Metrics</h2>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Model</th>
+        <th>Baseline (constant prediction)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Log loss (primary)</td>
+        <td>{{ "%.4f"|format(metrics.model.log_loss) if metrics.model.log_loss is not none else "—" }}</td>
+        <td>{{ "%.4f"|format(metrics.baseline.log_loss) if metrics.baseline.log_loss is not none else "—" }}</td>
+      </tr>
+      <tr>
+        <td>AUC-ROC</td>
+        <td>{{ "%.4f"|format(metrics.model.auc) if metrics.model.auc is not none else "—" }}</td>
+        <td>{{ "%.4f"|format(metrics.baseline.auc) if metrics.baseline.auc is not none else "—" }}</td>
+      </tr>
+      <tr>
+        <td>Brier score</td>
+        <td>{{ "%.4f"|format(metrics.model.brier_score) if metrics.model.brier_score is not none else "—" }}</td>
+        <td>{{ "%.4f"|format(metrics.baseline.brier_score) if metrics.baseline.brier_score is not none else "—" }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 class="mt-4">Calibration</h2>
+<div class="card">
+  <p class="stat-label" style="font-size:0.9rem; text-transform:none; letter-spacing:normal;">
+    Predicted probability (xFG%) vs. actual make rate, bucketed. A well-calibrated model's curve
+    tracks the diagonal closely &mdash; this matters here because xFG% is shown directly to users.
+  </p>
+  <img src="{{ url_for('static', filename=calibration_plot_url) }}" alt="Calibration curve" style="max-width:100%;">
+</div>
+
+<h2 class="mt-4">Feature Importance</h2>
+<div class="card">
+  <img src="{{ url_for('static', filename=feature_importance_plot_url) }}" alt="Feature importance" style="max-width:100%;">
+</div>
+
+<h2 class="mt-4">Data Limitations</h2>
+<div class="card">
+  <p>
+    <code>nba_api</code>'s public endpoints do not expose true per-shot defender distance, shot
+    clock, or a contested-shot flag &mdash; that tracking data isn't publicly available.
+    <strong>Action type</strong> (pullup, catch-and-shoot, layup, dunk, step-back, etc.) is used as
+    the primary <em>real</em> per-shot proxy for how contested a shot likely was.
+  </p>
+  <p>
+    <strong>Defender distance</strong> is approximated with a league-average FG% prior, joined by
+    (season, shot-distance bucket) from aggregated tracking dashboards &mdash; this is a
+    supplementary approximation, not true per-shot tracking data, and should not be read as such.
+  </p>
+  <p>
+    <strong>Shot clock and a true contested-shot flag</strong> are not available at all from public
+    endpoints and are not used anywhere in this model.
+  </p>
+  <p>
+    The model is evaluated <strong>chronologically</strong> &mdash; trained on the two oldest
+    seasons in scope, tested on the most recent season entirely held out &mdash; to avoid leakage
+    from within-season streaks and to mirror real deployment (predicting shots the model has never
+    seen).
+  </p>
+</div>
+
+<h2 class="mt-4">Top Feature Importances</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Feature</th><th>Importance (gain)</th></tr></thead>
+    <tbody>
+      {% for row in feature_importance %}
+      <tr><td>{{ row.feature_name }}</td><td>{{ "%.2f"|format(row.importance) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Find a Player — NBA Shot Quality Model{% endblock %}
+{% block content %}
+<h1>Find a Player</h1>
+<input type="search" id="player-search-box" placeholder="Search by name..." autocomplete="off">
+<ul id="player-search-results" style="list-style:none; padding:0; margin-top: var(--space-3);"></ul>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const box = document.getElementById('player-search-box');
+  const results = document.getElementById('player-search-results');
+
+  box.addEventListener('input', () => {
+    const q = box.value.trim();
+    if (!q) {
+      results.innerHTML = '';
+      return;
+    }
+    fetch(`{{ url_for('player.search') }}?q=${encodeURIComponent(q)}`)
+      .then((res) => res.json())
+      .then((players) => {
+        results.innerHTML = players
+          .map((p) => `<li class="card mb-4"><a href="/players/${p.player_id}">${p.name}</a></li>`)
+          .join('');
+      });
+  });
+</script>
+{% endblock %}
