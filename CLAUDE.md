@@ -113,12 +113,18 @@ If you add automated tests, prefer `pytest` for pipeline unit tests (feature eng
 
 **Web app (Render):**
 ```bash
-# Push to the connected GitHub repo — Render auto-deploys on push to main
-# The SQLite DB file (built by the offline pipeline) must be committed/bundled
-# with the app, since Render's free-tier disk is ephemeral and the app is read-only at runtime.
+# 1. Run the offline pipeline for real (see pipeline/README.md) to produce db/nba_shot_quality.sqlite3
+# 2. db/*.sqlite3 is gitignored during development (to avoid committing throwaway/synthetic
+#    test DBs) — force-add the real one deliberately before deploying:
+git add -f db/nba_shot_quality.sqlite3
+git commit -m "Add production database for deployment"
+git push
+# 3. Push to the connected GitHub repo — Render auto-deploys on push to main.
+#    render.yaml defines the service: `pip install -r requirements.txt`, then
+#    `gunicorn app.run:app`, health-checked on GET /health.
 ```
 
-There is no separate deploy step for the pipeline/model — it is run locally, and only its output (`db/*.sqlite3`) ships to production.
+The SQLite DB file must be committed/bundled with the app, since Render's free-tier disk is ephemeral and the app is read-only at runtime (see "Key Architectural Decisions" above). There is no separate deploy step for the pipeline/model — it is run locally, and only its output (`db/*.sqlite3`) ships to production.
 
 ---
 
@@ -130,6 +136,7 @@ There is no separate deploy step for the pipeline/model — it is run locally, a
 | `todo.md` | Step-by-step implementation plan — 49 tasks (T-001–T-049) across 9 phases, with subtasks and a dependency graph |
 | `pipeline/README.md` | Exact pipeline run order and any manual steps (written as part of T-028.3) |
 | `db/schema.sql` | SQLite schema — canonical definition of `shots`, `players`, `leaderboard`, `model_metrics`, `calibration_bins`, `feature_importance` tables |
+| `render.yaml` | Render service definition (build/start commands, env vars, health check) |
 | `models/MODEL_CARD.md` | Training date, seasons used, feature list, headline metrics for the current model artifact |
 
 ---

@@ -608,10 +608,10 @@
 **Depends on:** T-046
 **Context:** Gets the app ready to run under a production WSGI server rather than Flask's dev server, and finalizes the deployment-specific files Render needs.
 
-- [ ] **T-047.1** Install and configure `gunicorn` as the production WSGI server
-- [ ] **T-047.2** Finalize `requirements.txt` with all app + pipeline dependencies pinned
-- [ ] **T-047.3** Create the Render service definition (`render.yaml` or configure via dashboard) with the correct start command (`gunicorn app.run:app` or equivalent)
-- [ ] **T-047.4** Confirm the SQLite DB file (populated by the offline pipeline) is included in the deployment bundle, since Render's free-tier disk is ephemeral and the app never writes to it at runtime
+- [x] **T-047.1** Install and configure `gunicorn` as the production WSGI server — already pinned in `requirements.txt` since T-002; verified for real by actually starting `gunicorn app.run:app` and confirming `GET /health` returns 200 (not just assumed to work because it's installed)
+- [x] **T-047.2** Finalize `requirements.txt` with all app + pipeline dependencies pinned — re-ran `pip freeze` and diffed against the committed file: zero differences, confirming nothing was added during Phases 5-8 that isn't already captured
+- [x] **T-047.3** Create the Render service definition (`render.yaml` or configure via dashboard) with the correct start command (`gunicorn app.run:app` or equivalent)
+- [x] **T-047.4** Confirm the SQLite DB file (populated by the offline pipeline) is included in the deployment bundle, since Render's free-tier disk is ephemeral and the app never writes to it at runtime — **real gap found:** `.gitignore` excludes `*.sqlite3` unconditionally (deliberately, so throwaway/synthetic test DBs built during this whole session never got committed by accident — see every phase's cleanup step). That means the *real* production DB would currently be silently excluded from the deploy bundle too. Documented the fix (not automated, since there's no real DB to commit yet): before deploying, force-add it with `git add -f db/nba_shot_quality.sqlite3`. Added this as an explicit step in `CLAUDE.md`'s Deploy section and a comment directly in `.gitignore` next to the `*.sqlite3` rule so it isn't missed.
 
 ---
 
@@ -620,9 +620,9 @@
 **Depends on:** T-047
 **Context:** Ships the app to a public URL — the final deliverable for the portfolio piece.
 
-- [ ] **T-048.1** Push the repository to GitHub (if not already) and connect it to a new Render web service
-- [ ] **T-048.2** Trigger the first deploy; resolve any build/start failures
-- [ ] **T-048.3** Confirm the live URL loads the Landing page successfully
+- [ ] **T-048.1** Push the repository to GitHub (if not already) and connect it to a new Render web service — **cannot be done from this environment: requires your own Render account/credentials**, which are out of reach for an AI agent to create or authenticate with on your behalf. To do this yourself: push this repo to GitHub, go to render.com → New → Web Service, connect the repo, and Render should auto-detect `render.yaml`.
+- [ ] **T-048.2** Trigger the first deploy; resolve any build/start failures — do this after T-048.1, from the Render dashboard
+- [ ] **T-048.3** Confirm the live URL loads the Landing page successfully — remember to run the real pipeline (`pipeline/run_all.py`, Phases 1-4) and force-add the resulting `db/*.sqlite3` (see T-047.4) *before* this deploy, or the Landing page will load but every other page will error on an empty/missing database
 
 ---
 
@@ -631,6 +631,6 @@
 **Depends on:** T-048
 **Context:** Final verification that everything works identically in production as it did locally — the last task before calling the project done.
 
-- [ ] **T-049.1** Repeat the manual QA walkthrough from T-046 against the live production URL
-- [ ] **T-049.2** Verify page load times are reasonable (SQLite reads should be fast; flag anything sluggish)
-- [ ] **T-049.3** Share/record the final live link for the portfolio
+- [ ] **T-049.1** Repeat the manual QA walkthrough from T-046 against the live production URL — **blocked on T-048** (no live URL exists yet)
+- [ ] **T-049.2** Verify page load times are reasonable (SQLite reads should be fast; flag anything sluggish) — blocked on T-048
+- [ ] **T-049.3** Share/record the final live link for the portfolio — blocked on T-048

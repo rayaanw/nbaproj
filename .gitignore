@@ -14,6 +14,11 @@ data/raw/defender_priors/*
 !data/raw/defender_priors/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+# Gitignored during development so throwaway/synthetic test DBs never get
+# committed by accident. Render's free-tier disk is ephemeral, so the real
+# production DB *does* need to ship in the repo (see CLAUDE.md "Deploy" and
+# pipeline/README.md) — before deploying, force-add it deliberately:
+#   git add -f db/nba_shot_quality.sqlite3
 *.sqlite3
 .env
 models/*
