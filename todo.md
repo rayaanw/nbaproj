@@ -555,10 +555,10 @@
 **Depends on:** T-034, T-036, T-038, T-040, T-042
 **Context:** Wires together the individual pages into the coherent app flow specified in the PRD (Landing → Explorer/Leaderboard → Player Page, Methodology reachable from anywhere).
 
-- [ ] **T-043.1** Finalize the nav bar (from T-032.3) with active-page highlighting across all 5 pages
-- [ ] **T-043.2** Verify Explorer's player-select interaction can deep-link into the Player Page (per PRD app flow diagram)
-- [ ] **T-043.3** Verify Leaderboard row clicks correctly route to the matching Player Page with data loaded
-- [ ] **T-043.4** Add a consistent footer/credit linking to Methodology from every page
+- [x] **T-043.1** Finalize the nav bar (from T-032.3) with active-page highlighting across all 5 pages — verified in the real-browser pass (T-034 note); re-confirmed here by reading the rendered `<nav>` HTML directly and seeing `class="active"` correctly applied only to the current page's link
+- [x] **T-043.2** Verify Explorer's player-select interaction can deep-link into the Player Page (per PRD app flow diagram) — **was missing entirely** (the Explorer only filtered the chart in place with no way to jump to that player's own page). Added a "View Player Page →" link next to the filters that appears once a specific player is selected; verified in a real browser that selecting a player shows the link with the correct `href`, and that clicking it actually navigates to `/players/<id>`
+- [x] **T-043.3** Verify Leaderboard row clicks correctly route to the matching Player Page with data loaded — already wired in T-038.3; confirmed working via the test-client pass (T-034 note)
+- [x] **T-043.4** Add a consistent footer/credit linking to Methodology from every page — lives in `base.html` outside any page's content block, so every page gets it automatically; no per-page wiring needed
 
 ---
 

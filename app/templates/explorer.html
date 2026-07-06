@@ -46,6 +46,9 @@
       {% endfor %}
     </select>
   </label>
+
+  <!-- T-043.2: deep-link into the Player Page once a specific player is selected -->
+  <a id="view-player-link" class="btn btn-secondary" style="display:none;" href="#">View Player Page &rarr;</a>
 </div>
 
 <div class="card">
@@ -60,6 +63,16 @@
   const zoneEl = document.getElementById('filter-zone');
   const playerEl = document.getElementById('filter-player');
   const teamEl = document.getElementById('filter-team');
+  const viewPlayerLink = document.getElementById('view-player-link');
+
+  function updateViewPlayerLink() {
+    if (playerEl.value) {
+      viewPlayerLink.href = `/players/${playerEl.value}`;
+      viewPlayerLink.style.display = '';
+    } else {
+      viewPlayerLink.style.display = 'none';
+    }
+  }
 
   function loadExplorerData() {
     const params = new URLSearchParams();
@@ -73,6 +86,8 @@
       .then((shots) => {
         renderHexbinChart('explorer-chart', shots, { title: 'Shot Explorer' });
       });
+
+    updateViewPlayerLink();
   }
 
   [seasonEl, zoneEl, playerEl, teamEl].forEach((el) => el.addEventListener('change', loadExplorerData));
