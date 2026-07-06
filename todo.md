@@ -56,11 +56,12 @@
 **Depends on:** T-003
 **Context:** Before pulling shot-by-shot data, we need to know which players qualify (≥`MIN_PLAYER_ATTEMPTS` across the 3-season window) and which team they played for each season, so later pulls are scoped and don't waste calls on players with negligible data.
 
-- [ ] **T-004.1** Write `pipeline/01_pull_player_reference.py` using an `nba_api` league-wide player stats endpoint to fetch all players who played in each of the 3 target seasons
-- [ ] **T-004.2** Aggregate total field goal attempts per player across the 3-season window
-- [ ] **T-004.3** Filter to players meeting `MIN_PLAYER_ATTEMPTS`; keep player ID, name, and team ID(s) per season (players can change teams)
-- [ ] **T-004.4** Save the result to `data/raw/players_reference.parquet`
-- [ ] **T-004.5** Log summary counts (players in, players after filter) to confirm the scope is reasonable before the expensive per-player pull begins
+- [x] **T-004.1** Write `pipeline/01_pull_player_reference.py` using an `nba_api` league-wide player stats endpoint to fetch all players who played in each of the 3 target seasons — uses `leaguedashplayerstats`
+- [x] **T-004.2** Aggregate total field goal attempts per player across the 3-season window
+- [x] **T-004.3** Filter to players meeting `MIN_PLAYER_ATTEMPTS`; keep player ID, name, and team ID(s) per season (players can change teams)
+- [x] **T-004.4** Save the result to `data/raw/players_reference.parquet`
+- [x] **T-004.5** Log summary counts (players in, players after filter) to confirm the scope is reasonable before the expensive per-player pull begins
+- **Verification note:** stats.nba.com is unreachable from this build sandbox (network blocked), so this could not be run against live data. Logic was verified by monkey-patching `LeagueDashPlayerStats` with a synthetic response matching real columns (`PLAYER_ID`, `PLAYER_NAME`, `TEAM_ID`, `TEAM_ABBREVIATION`, `FGA`) and confirming the attempt-aggregation/filter/save steps behave correctly (a below-threshold player was correctly excluded). Run for real on a machine with network access before trusting the output.
 
 ---
 
@@ -69,12 +70,12 @@
 **Depends on:** T-004
 **Context:** This is the core dataset — per-shot location, distance, zone, and action type for every qualifying player across 3 seasons, via `shotchartdetail`. It's the slowest, most rate-limit-sensitive part of the pipeline, so it must be resumable and cache-friendly.
 
-- [ ] **T-005.1** Write `pipeline/02_pull_shot_charts.py` that loops over each (player, season) pair from `players_reference.parquet` and calls the `shotchartdetail` endpoint
-- [ ] **T-005.2** Add retry-with-backoff logic and a fixed delay between calls (using `REQUEST_DELAY_SECONDS`/`MAX_RETRIES` from config) to avoid IP throttling
-- [ ] **T-005.3** After each successful pull, write the raw response to `data/raw/shots/{season}/{player_id}.parquet` — one file per player/season so a crashed run can resume without re-pulling completed players
-- [ ] **T-005.4** At the start of the loop, skip any (player, season) pair whose output file already exists, so the script is safely re-runnable
-- [ ] **T-005.5** Log failures (player/season pairs that errored after max retries) to `data/raw/shots/_failures.log` for manual follow-up
-- [ ] **T-005.6** Run the full pull for all 3 seasons and confirm file counts match the expected player/season pair count
+- [x] **T-005.1** Write `pipeline/02_pull_shot_charts.py` that loops over each (player, season) pair from `players_reference.parquet` and calls the `shotchartdetail` endpoint
+- [x] **T-005.2** Add retry-with-backoff logic and a fixed delay between calls (using `REQUEST_DELAY_SECONDS`/`MAX_RETRIES` from config) to avoid IP throttling — shared `call_with_retry()` helper in `pipeline/utils.py`, used by all pullers
+- [x] **T-005.3** After each successful pull, write the raw response to `data/raw/shots/{season}/{player_id}.parquet` — one file per player/season so a crashed run can resume without re-pulling completed players
+- [x] **T-005.4** At the start of the loop, skip any (player, season) pair whose output file already exists, so the script is safely re-runnable — verified via a mocked rerun that correctly reported `skipped(existing)` instead of re-pulling
+- [x] **T-005.5** Log failures (player/season pairs that errored after max retries) to `data/raw/shots/_failures.log` for manual follow-up
+- [ ] **T-005.6** Run the full pull for all 3 seasons and confirm file counts match the expected player/season pair count — **not run**; requires network access to `stats.nba.com`, which this sandbox cannot reach. Logic verified with mocked responses only (see T-004 verification note). Run this for real per the workflow documented in `CLAUDE.md`/`pipeline/README.md` (T-028.3).
 
 ---
 
@@ -83,10 +84,11 @@
 **Depends on:** T-004
 **Context:** `shotchartdetail` does not include the live score at the time of each shot, which we need for the score-margin (game situation) feature. This requires a separate pull of play-by-play data per game, matched later to shots by `GAME_ID` and event number.
 
-- [ ] **T-006.1** From the shot chart scope, derive the distinct set of `GAME_ID`s that will need to be covered (can run in parallel with T-005 once player/season scope is known, or after — either is fine since it depends only on T-004)
-- [ ] **T-006.2** Write `pipeline/03_pull_playbyplay.py` that pulls play-by-play data per unique `GAME_ID` (score fields included), with the same retry/backoff/delay approach as T-005
-- [ ] **T-006.3** Save one file per game to `data/raw/playbyplay/{game_id}.parquet`, skipping already-pulled games on re-run
-- [ ] **T-006.4** Log failures the same way as T-005.5
+- [x] **T-006.1** From the shot chart scope, derive the distinct set of `GAME_ID`s that will need to be covered (can run in parallel with T-005 once player/season scope is known, or after — either is fine since it depends only on T-004) — implemented as reading distinct `GAME_ID`s directly out of whatever shot-chart parquet files already exist under `data/raw/shots/`, rather than a separate lookup call; safe to run partway through T-005 and rerun later to pick up new games
+- [x] **T-006.2** Write `pipeline/03_pull_playbyplay.py` that pulls play-by-play data per unique `GAME_ID` (score fields included), with the same retry/backoff/delay approach as T-005 — uses `playbyplayv2`, whose `SCOREMARGIN`/`SCORE` columns give the score state directly per event (no manual score-progression math needed for T-011)
+- [x] **T-006.3** Save one file per game to `data/raw/playbyplay/{game_id}.parquet`, skipping already-pulled games on re-run — resumability verified via mocked rerun
+- [x] **T-006.4** Log failures the same way as T-005.5
+- **Verification note:** same sandbox network constraint as T-004/T-005 — logic verified with a mocked `PlayByPlayV2` response, not a live pull.
 
 ---
 
@@ -95,9 +97,9 @@
 **Depends on:** T-003
 **Context:** True per-shot defender distance isn't available, so we pull the league's aggregated shot-distance × defender-distance FG% tables (tracking dashboard endpoints) per season, to use later as a supplementary league-average prior. This doesn't depend on the player list — it's a league-wide aggregate — so it only needs the season scope from config.
 
-- [ ] **T-007.1** Write `pipeline/04_pull_defender_distance_priors.py` calling the relevant `nba_api` tracking dashboard endpoint(s) for each of the 3 seasons
-- [ ] **T-007.2** Confirm the returned data can be organized into buckets of (shot distance range, closest defender distance range) with associated FG%
-- [ ] **T-007.3** Save one table per season to `data/raw/defender_priors/{season}.parquet`
+- [x] **T-007.1** Write `pipeline/04_pull_defender_distance_priors.py` calling the relevant `nba_api` tracking dashboard endpoint(s) for each of the 3 seasons — uses `leaguedashplayerptshot` called once per (shot-distance bucket × closest-defender-distance bucket) combination, league-wide (no player/team filter), summing `FGM`/`FGA` across all returned player rows to get a single league-wide cell
+- [ ] **T-007.2** Confirm the returned data can be organized into buckets of (shot distance range, closest defender distance range) with associated FG% — **partially done.** The bucketing logic itself is verified (mocked response → correct 7×4=28-row table per season, see `SHOT_DIST_RANGES`/`CLOSE_DEF_DIST_RANGES` in the script). **Not yet confirmed:** whether the specific filter string values (e.g. `"Less Than 5 ft."`, `"0-2 Feet - Very Tight"`) are exactly what the live `stats.nba.com` API expects — these are documented/best-known values but couldn't be checked against a live call from this sandbox. The script raises loudly on any empty bucket result specifically so this gets caught immediately on the first real run rather than silently producing a broken prior table.
+- [x] **T-007.3** Save one table per season to `data/raw/defender_priors/{season}.parquet`
 
 ---
 
@@ -106,9 +108,10 @@
 **Depends on:** T-005, T-006, T-007
 **Context:** Before spending time on feature engineering, verify the raw pulls are complete and sane. Catching a bad pull here is far cheaper than discovering it after training a model on corrupted data.
 
-- [ ] **T-008.1** Write `pipeline/05_validate_raw_data.py` that checks: expected file counts (per T-005/T-006 scope) are present, no file has zero rows unexpectedly, and column schemas are consistent across all shot-chart files
-- [ ] **T-008.2** Check null rates on key columns (`LOC_X`, `LOC_Y`, `SHOT_DISTANCE`, `ACTION_TYPE`, `SHOT_MADE_FLAG`) and fail loudly if any exceed a small threshold (e.g. >1%)
-- [ ] **T-008.3** Write a data manifest (`data/raw/manifest.json`) summarizing row counts per season/table, used as a sanity checkpoint for future pipeline reruns
+- [x] **T-008.1** Write `pipeline/05_validate_raw_data.py` that checks: expected file counts (per T-005/T-006 scope) are present, no file has zero rows unexpectedly, and column schemas are consistent across all shot-chart files
+- [x] **T-008.2** Check null rates on key columns (`LOC_X`, `LOC_Y`, `SHOT_DISTANCE`, `ACTION_TYPE`, `SHOT_MADE_FLAG`) and fail loudly if any exceed a small threshold (e.g. >1%)
+- [x] **T-008.3** Write a data manifest (`data/raw/manifest.json`) summarizing row counts per season/table, used as a sanity checkpoint for future pipeline reruns
+- **Verification note:** ran end-to-end against synthetic data shaped like the T-004–T-007 outputs (6 shot files, 1 play-by-play file, 3 defender-prior files) — schema/null-rate checks and manifest generation all work correctly. Test data was deleted afterward (not committed) so it won't block the user's real pull via the resumability/skip-existing logic.
 
 ---
 
