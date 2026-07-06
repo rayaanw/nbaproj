@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from flask import Blueprint, abort, jsonify, render_template, request
 
-from app.queries import get_player, get_player_shots, get_seasons, search_players
+from app.queries import get_player, get_player_latest_team, get_player_shots, get_seasons, search_players
+from app.team_colors import get_team_color
 
 bp = Blueprint("player", __name__, url_prefix="/players")
 
@@ -44,6 +45,8 @@ def detail(player_id: int):
     if player is None:
         abort(404, description="Player not found")
 
+    team_color = get_team_color(get_player_latest_team(player_id))
+
     shots = get_player_shots(player_id, season=season)
 
     if not shots:
@@ -51,6 +54,7 @@ def detail(player_id: int):
             "player.html",
             active_page="player",
             player=player,
+            team_color=team_color,
             seasons=get_seasons(),
             selected_season=season,
             has_shots=False,
@@ -93,6 +97,7 @@ def detail(player_id: int):
         "player.html",
         active_page="player",
         player=player,
+        team_color=team_color,
         seasons=get_seasons(),
         selected_season=season,
         has_shots=True,

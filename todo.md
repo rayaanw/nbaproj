@@ -571,9 +571,9 @@
 **Depends on:** T-043
 **Context:** With all pages functionally wired together, do a dedicated visual consistency pass — this is where the "looks like a real app" goal gets delivered.
 
-- [ ] **T-044.1** Audit all 5 pages against the theme variables from T-032.2 for consistent spacing, color usage, and typography
-- [ ] **T-044.2** Add team-colored accents where relevant (e.g. player page header tinted by team color)
-- [ ] **T-044.3** Polish stat callouts (large bold numbers for FG%, differential) to match the ESPN/NBA.com-inspired aesthetic from the PRD
+- [x] **T-044.1** Audit all 5 pages against the theme variables from T-032.2 for consistent spacing, color usage, and typography — all 5 pages already extend `base.html` and use only the shared `.card`/`.stat-*`/`.navbar` classes and CSS custom properties, so there was no per-page drift to fix; confirmed visually in the real-browser screenshot pass
+- [x] **T-044.2** Add team-colored accents where relevant (e.g. player page header tinted by team color) — **was completely missing.** Added `app/team_colors.py` (NBA team primary-color hex map) + `get_player_latest_team()` in `queries.py`; the Player Page header and stat-card row are now tinted with a left/top border in the player's most recent team color. Verified in a real browser: a player on the Lakers rendered with an exact `rgb(85, 37, 131)` (`#552583`) border, confirming the lookup and CSS both work correctly end-to-end.
+- [x] **T-044.3** Polish stat callouts (large bold numbers for FG%, differential) to match the ESPN/NBA.com-inspired aesthetic from the PRD — `.stat-callout` (2.25rem/700 weight) + `.stat-label` (small uppercase muted) established in T-032.2, used consistently on the Player Page; visually confirmed
 
 ---
 
@@ -582,9 +582,9 @@
 **Depends on:** T-044
 **Context:** Confirms the desktop-first layout doesn't visibly break at smaller widths, per the PRD's "responsive enough not to break, not mobile-optimized" requirement.
 
-- [ ] **T-045.1** Test all 5 pages at common desktop widths (1920px, 1440px, 1280px)
-- [ ] **T-045.2** Test at a tablet width (~768px) and confirm no broken/overlapping layout, even if not fully optimized
-- [ ] **T-045.3** Fix any critical breakage found (overflow, unreadable text, non-functional filters) — cosmetic-only mobile issues can be deferred
+- [x] **T-045.1** Test all 5 pages at common desktop widths (1920px, 1440px, 1280px) — tested via the real preview browser at exactly these three widths; all render cleanly
+- [x] **T-045.2** Test at a tablet width (~768px) and confirm no broken/overlapping layout, even if not fully optimized — tested at 768×1024; the `@media (max-width: 900px)` rule correctly drops `body`'s desktop `min-width`, stacks `.card-grid` to a single column, and (combined with the T-036.4 `flex-wrap` fix) wraps the filter row instead of overflowing
+- [x] **T-045.3** Fix any critical breakage found (overflow, unreadable text, non-functional filters) — the one real issue found (Explorer's filter row overflowing) was already fixed under T-036.4; no additional breakage found at any tested width
 
 ---
 
@@ -593,9 +593,9 @@
 **Depends on:** T-045
 **Context:** Final functional check across the whole app before deployment — catches interaction bugs (broken filters, chart rendering issues) that unit-level work wouldn't surface.
 
-- [ ] **T-046.1** Manually walk through the full app flow (Landing → Explorer → Leaderboard → Player Page → Methodology) in at least two browsers (e.g. Chrome, Safari/Firefox)
-- [ ] **T-046.2** Verify all interactive features: hexbin hover tooltips, season/zone filters, player search, leaderboard season selector, leaderboard→player links
-- [ ] **T-046.3** Fix any bugs found; re-test affected flows after fixes
+- [ ] **T-046.1** Manually walk through the full app flow (Landing → Explorer → Leaderboard → Player Page → Methodology) in at least two browsers (e.g. Chrome, Safari/Firefox) — **partially done, and honestly can't be fully done in this environment.** The full flow was walked through and works correctly, but only in *one* browser engine: this sandbox's preview tool is Chromium/Electron-based (`navigator.userAgent` confirms `Chrome/146.0.7680.216 Electron/41.6.1`), and no second browser engine (real Safari/Firefox/WebKit) is available here to cross-check against. Nothing in the app uses anything browser-specific (plain Flask/Jinja + vanilla JS + Plotly.js, no bleeding-edge CSS), so a second-engine check is low-risk, but it genuinely hasn't been done — recommend a quick manual pass in Safari or Firefox before calling this fully done.
+- [x] **T-046.2** Verify all interactive features: hexbin hover tooltips, season/zone filters, player search, leaderboard season selector, leaderboard→player links — all verified working in real-browser tests: tooltips (T-033.3/T-036.3), Explorer filters incl. the new player-select deep link (T-043.2), player search-as-you-type (typed "Test", got back all 3 matching players with working links), leaderboard season selector (T-038.2), leaderboard→player links (T-038.3)
+- [x] **T-046.3** Fix any bugs found; re-test affected flows after fixes — 2 real bugs found and fixed during this phase (Explorer filter-row overflow; missing Explorer→Player deep link), both re-verified after fixing
 
 ---
 

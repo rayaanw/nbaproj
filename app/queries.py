@@ -145,6 +145,17 @@ def get_player(player_id: int) -> sqlite3.Row | None:
         ).fetchone()
 
 
+def get_player_latest_team(player_id: int) -> str | None:
+    """Most recent team abbreviation for a player (T-044.2's team-color accent)."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT team_abbreviation FROM player_teams WHERE player_id = ? "
+            "ORDER BY season DESC LIMIT 1",
+            [player_id],
+        ).fetchone()
+        return row["team_abbreviation"] if row else None
+
+
 def get_seasons() -> list[str]:
     """Distinct seasons present in the DB, for populating filter dropdowns."""
     with get_connection() as conn:

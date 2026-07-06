@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ player.name }} — NBA Shot Quality Model{% endblock %}
 {% block content %}
-<h1>{{ player.name }}</h1>
+<h1 style="border-left: 6px solid {{ team_color }}; padding-left: var(--space-3);">{{ player.name }}</h1>
 
 <form method="get" class="mb-4">
   <label>
@@ -20,7 +20,7 @@
   <p class="stat-label">No shots found for this player{{ ' in ' + selected_season if selected_season else '' }}.</p>
 </div>
 {% else %}
-<div class="card-grid mb-4">
+<div class="card-grid mb-4" style="border-top: 3px solid {{ team_color }}; padding-top: var(--space-3);">
   <div class="card">
     <div class="stat-label">Actual FG%</div>
     <div class="stat-callout">{{ "%.1f"|format(overall.actual_fg_pct * 100) }}%</div>
