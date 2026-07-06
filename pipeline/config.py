@@ -47,3 +47,15 @@ SCHEMA_PATH = DB_DIR / "schema.sql"
 # resumable rather than fast and blocked.
 REQUEST_DELAY_SECONDS = 0.75
 MAX_RETRIES = 5
+
+# --- XGBoost threading -------------------------------------------------------
+# Discovered while building this pipeline: on this sandboxed/virtualized
+# environment, XGBoost's default n_jobs (use-all-cores) made a single small
+# fit (~865 rows) take ~17s, vs. ~0.7s with n_jobs=1 — a ~25x threading-
+# overhead penalty, presumably from thread-pool setup/teardown cost per
+# .fit() call on this particular virtualized CPU. Pinning to 1 thread is
+# always correct (just not maximally fast on a real many-core machine); if
+# you're running this on real hardware and training feels slower than
+# expected, try raising this back to e.g. 4 or -1 (all cores) and see if the
+# same overhead reproduces there.
+XGBOOST_N_JOBS = 1

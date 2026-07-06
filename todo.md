@@ -216,9 +216,10 @@
 **Depends on:** T-015
 **Context:** A baseline (predict the league-average FG% for every shot) is required to prove the XGBoost model actually adds value — without it, a "good-looking" log loss number has no reference point.
 
-- [ ] **T-016.1** Write `pipeline/08_train_baseline.py` that computes the overall training-set make rate and applies it as a constant prediction for every test-set shot
-- [ ] **T-016.2** Compute log loss, AUC, and Brier score for this baseline on the test set
-- [ ] **T-016.3** Save baseline metrics to `models/baseline_metrics.json`
+- [x] **T-016.1** Write `pipeline/08_train_baseline.py` that computes the overall training-set make rate and applies it as a constant prediction for every test-set shot
+- [x] **T-016.2** Compute log loss, AUC, and Brier score for this baseline on the test set
+- [x] **T-016.3** Save baseline metrics to `models/baseline_metrics.json`
+- **Verification note:** unlike Phases 1-2 (which needed live `stats.nba.com` access this sandbox doesn't have), model training itself has no network dependency — T-016 through T-022 were genuinely *executed* end-to-end (not just logic-tested against mocks) against a semi-realistic synthetic dataset (~1,300 shots, make-probability deliberately correlated with distance so the model has real signal to find). Synthetic data and all generated artifacts were deleted afterward — `models/` only ships `.gitkeep`; nothing here is a real trained model yet. Run the real pipeline per `CLAUDE.md` once real data has been pulled.
 
 ---
 
@@ -227,9 +228,10 @@
 **Depends on:** T-015
 **Context:** The core model — gradient-boosted binary classifier predicting make/miss probability from the engineered feature set.
 
-- [ ] **T-017.1** Write `pipeline/09_train_model.py` loading `train.parquet`, separating features from the `SHOT_MADE_FLAG` target
-- [ ] **T-017.2** Train an initial XGBoost classifier with reasonable default hyperparameters as a first working model
-- [ ] **T-017.3** Confirm the model trains without error and produces sane probability outputs (0-1 range, not degenerate) on a held-out slice of the training data
+- [x] **T-017.1** Write `pipeline/09_train_model.py` loading `train.parquet`, separating features from the `SHOT_MADE_FLAG` target — feature/target split defined once in `pipeline/features.py::get_feature_columns()`/`TARGET_COLUMN`, shared with T-019/T-023 so train-time and predict-time feature sets can't silently drift apart; deliberately excludes `PLAYER_ID` (model must predict shot difficulty independent of who's shooting, per the PRD)
+- [x] **T-017.2** Train an initial XGBoost classifier with reasonable default hyperparameters as a first working model
+- [x] **T-017.3** Confirm the model trains without error and produces sane probability outputs (0-1 range, not degenerate) on a held-out slice of the training data — ran for real: predictions in [0.002, 0.997], std=0.34
+- **Real environment bug found & fixed:** XGBoost's default `n_jobs` (all cores) made a single ~865-row fit take ~17s vs ~0.7s with `n_jobs=1` — a ~25x threading-overhead penalty specific to this sandboxed/virtualized CPU. Added `XGBOOST_N_JOBS = 1` to `pipeline/config.py` (documented there, including how to try raising it on real hardware) and applied it to every `XGBClassifier(...)` construction across T-017/T-019/T-020/T-021. This dropped full grid-search training from 20+ minutes to 86 seconds.
 
 ---
 
@@ -238,10 +240,10 @@
 **Depends on:** T-017
 **Context:** Improves on the initial default-hyperparameter model using a small, defensible search — not exhaustive, but enough to demonstrate proper ML practice and meaningfully beat the baseline.
 
-- [ ] **T-018.1** Define a small hyperparameter grid (max depth, learning rate, n_estimators, subsample) relevant to XGBoost binary classification
-- [ ] **T-018.2** Run cross-validation on the training set only (never touching the test set) to select the best combination, optimizing for log loss
-- [ ] **T-018.3** Retrain the final model on the full training set using the selected hyperparameters
-- [ ] **T-018.4** Save the tuned model to `models/xgb_shot_quality.json` (XGBoost's native format)
+- [x] **T-018.1** Define a small hyperparameter grid (max depth, learning rate, n_estimators, subsample) relevant to XGBoost binary classification — 3×2×2×2 = 24 combinations
+- [x] **T-018.2** Run cross-validation on the training set only (never touching the test set) to select the best combination, optimizing for log loss — 3-fold `StratifiedKFold`
+- [x] **T-018.3** Retrain the final model on the full training set using the selected hyperparameters
+- [x] **T-018.4** Save the tuned model to `models/xgb_shot_quality.json` (XGBoost's native format) — also saves `models/feature_columns.json` alongside it (the exact column list/order) so scoring (T-023) can reconstruct an identical input matrix
 
 ---
 
@@ -250,10 +252,10 @@
 **Depends on:** T-018, T-016
 **Context:** Runs the tuned model against the held-out season and compares against the baseline from T-016 — this comparison is the headline result for the Methodology page.
 
-- [ ] **T-019.1** Write `pipeline/10_evaluate_model.py` that scores `test.parquet` with the trained model
-- [ ] **T-019.2** Compute log loss (primary), AUC-ROC, and Brier score on the test set
-- [ ] **T-019.3** Compare against `models/baseline_metrics.json` and compute the relative improvement
-- [ ] **T-019.4** Save all metrics to `models/model_metrics.json`
+- [x] **T-019.1** Write `pipeline/10_evaluate_model.py` that scores `test.parquet` with the trained model
+- [x] **T-019.2** Compute log loss (primary), AUC-ROC, and Brier score on the test set
+- [x] **T-019.3** Compare against `models/baseline_metrics.json` and compute the relative improvement
+- [x] **T-019.4** Save all metrics to `models/model_metrics.json` — on the synthetic test run: model log loss 0.664 vs. baseline 0.693 (4.1% improvement), AUC 0.65, confirming the tuned model beats the baseline as expected before ever pointing this at real data
 
 ---
 
@@ -262,9 +264,9 @@
 **Depends on:** T-019
 **Context:** Visual proof the predicted probabilities are trustworthy — critical since the app displays "expected FG%" directly to users. Built with matplotlib per the PRD's offline-visualization tooling choice.
 
-- [ ] **T-020.1** Bucket test-set predictions into probability bins (e.g. deciles) and compute actual make rate per bin
-- [ ] **T-020.2** Plot predicted probability (x-axis) vs. actual make rate (y-axis) against the ideal diagonal, using matplotlib
-- [ ] **T-020.3** Save the plot image to `models/calibration_plot.png` and the underlying bucket data to `models/calibration_data.json` (for rendering on the Methodology page later)
+- [x] **T-020.1** Bucket test-set predictions into probability bins (e.g. deciles) and compute actual make rate per bin
+- [x] **T-020.2** Plot predicted probability (x-axis) vs. actual make rate (y-axis) against the ideal diagonal, using matplotlib
+- [x] **T-020.3** Save the plot image to `models/calibration_plot.png` and the underlying bucket data to `models/calibration_data.json` (for rendering on the Methodology page later) — plot visually inspected, renders correctly with legend/diagonal reference line
 
 ---
 
@@ -273,9 +275,10 @@
 **Depends on:** T-018
 **Context:** A second transparency artifact for the Methodology page, showing which factors drive the model's predictions (e.g. shot distance and action type should dominate).
 
-- [ ] **T-021.1** Extract feature importances from the trained XGBoost model
-- [ ] **T-021.2** Plot a horizontal bar chart of top features using matplotlib
-- [ ] **T-021.3** Save the plot to `models/feature_importance.png` and raw values to `models/feature_importance.json`
+- [x] **T-021.1** Extract feature importances from the trained XGBoost model — gain-based (`importance_type="gain"`)
+- [x] **T-021.2** Plot a horizontal bar chart of top features using matplotlib
+- [x] **T-021.3** Save the plot to `models/feature_importance.png` and raw values to `models/feature_importance.json`
+- **Real bug found & fixed:** the first version looked up importances by generic `f0`/`f1`/... indices, but a booster fit on a pandas DataFrame (as this one is) keys `get_score()` by the *real column names* directly — the index-based lookup silently missed every feature and produced an all-zero chart. Fixed to look up by name directly; re-ran and confirmed the chart populates correctly with `SHOT_DISTANCE` on top, matching the synthetic data's built-in distance-based signal (a good sanity check that the whole training→importance pipeline is wired correctly).
 
 ---
 
@@ -284,8 +287,9 @@
 **Depends on:** T-018, T-019, T-020, T-021
 **Context:** Consolidates every training deliverable into one clearly versioned bundle so the scoring step (Phase 4) and the Methodology page (Phase 6) have a single, stable source to read from.
 
-- [ ] **T-022.1** Confirm all artifacts exist: `models/xgb_shot_quality.json`, `models/model_metrics.json`, `models/baseline_metrics.json`, `models/calibration_plot.png`, `models/calibration_data.json`, `models/feature_importance.png`, `models/feature_importance.json`
-- [ ] **T-022.2** Write a `models/MODEL_CARD.md` summarizing training date, seasons used, feature list, and headline metrics — for your own reference and portfolio credibility
+- [x] **T-022.1** Confirm all artifacts exist: `models/xgb_shot_quality.json`, `models/model_metrics.json`, `models/baseline_metrics.json`, `models/calibration_plot.png`, `models/calibration_data.json`, `models/feature_importance.png`, `models/feature_importance.json` — `pipeline/10c_write_model_card.py` checks this and raises loudly if anything's missing before writing the card
+- [x] **T-022.2** Write a `models/MODEL_CARD.md` summarizing training date, seasons used, feature list, and headline metrics — for your own reference and portfolio credibility
+- **Important:** all of T-016–T-022 were run for real, but only against synthetic placeholder data (see the T-016 verification note) — `models/MODEL_CARD.md` generated during this test was deleted afterward rather than committed, since committing it would misrepresent fake metrics as a real trained model. `models/` ships with only `.gitkeep`. Run `python pipeline/run_all.py` (T-028) for real once live data has been pulled, which will regenerate a genuine model card.
 
 ---
 

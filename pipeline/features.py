@@ -72,3 +72,42 @@ def encode_period(period: pd.Series) -> pd.DataFrame:
     """T-012.3: clean integer period plus an overtime flag (periods 5+)."""
     period_clean = period.astype(int)
     return pd.DataFrame({"period_clean": period_clean, "is_overtime": period_clean > 4})
+
+
+TARGET_COLUMN = "SHOT_MADE_FLAG"
+
+# Columns present in features_final.parquet that are NOT model inputs:
+# identifiers/metadata (no predictive meaning, or would leak the shot's
+# identity), raw text fields superseded by an engineered/one-hot version,
+# and the prediction target itself.
+#
+# PLAYER_ID is deliberately excluded — the model predicts shot difficulty
+# independent of who took the shot (see PRD "Core concept"); comparing a
+# player's actual FG% to their aggregated xFG% is exactly what isolates
+# shooting skill, which only works if the model itself never sees player
+# identity.
+NON_FEATURE_COLUMNS = {
+    "GAME_ID",
+    "GAME_EVENT_ID",
+    "PLAYER_ID",
+    "TEAM_ID",
+    "TEAM_NAME",
+    "GAME_DATE",
+    "HTM",
+    "VTM",
+    "SEASON",
+    "EVENT_TYPE",
+    "SHOT_TYPE",
+    "SHOT_ATTEMPTED_FLAG",
+    "is_heave",  # already filtered out of features_final.parquet; not a model input
+    "shot_distance_bucket",  # only needed to join the defender-distance prior; SHOT_DISTANCE (continuous) is the modeling feature
+    TARGET_COLUMN,
+}
+
+
+def get_feature_columns(df: pd.DataFrame) -> list[str]:
+    """The single shared definition of "which columns are model inputs",
+    used by training (T-017), evaluation (T-019), and scoring (T-023) so
+    train-time and predict-time feature sets can never silently drift apart.
+    """
+    return [c for c in df.columns if c not in NON_FEATURE_COLUMNS]

@@ -79,8 +79,14 @@ def join_score_margin(shots: pd.DataFrame, pbp: pd.DataFrame) -> pd.DataFrame:
     """T-011.2/.3: attach the score margin as of the last PBP event strictly
     before each shot's own GAME_EVENT_ID, via a per-game backward as-of merge.
     """
-    shots = shots.sort_values(["GAME_ID", "GAME_EVENT_ID"]).reset_index(drop=True)
-    pbp = pbp.sort_values(["GAME_ID", "EVENTNUM"]).reset_index(drop=True)
+    # merge_asof with `by=` still requires the `on` column itself to be
+    # sorted *globally* (not just within each `by` group) on this pandas
+    # version — sorting only by GAME_ID+GAME_EVENT_ID (group-then-key) raises
+    # "left keys must be sorted" even though each group is individually in
+    # order. Sorting by the key column alone satisfies both requirements;
+    # `by="GAME_ID"` still correctly restricts matches to the same game.
+    shots = shots.sort_values("GAME_EVENT_ID").reset_index(drop=True)
+    pbp = pbp.sort_values("EVENTNUM").reset_index(drop=True)
 
     merged = pd.merge_asof(
         shots,
