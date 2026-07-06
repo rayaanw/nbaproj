@@ -302,9 +302,10 @@
 **Depends on:** T-022, T-014
 **Context:** Applies the final trained model to every shot (train + test seasons combined) to produce the `xFG%` value the entire app displays — not just the test set, since the app needs predictions for all 3 seasons of data.
 
-- [ ] **T-023.1** Write `pipeline/11_score_all_shots.py` loading `features_final.parquet` (the full 3-season table) and the trained model from `models/xgb_shot_quality.json`
-- [ ] **T-023.2** Generate an `xfg_pct` prediction column for every shot
-- [ ] **T-023.3** Save the fully scored dataset to `data/processed/shots_scored.parquet`
+- [x] **T-023.1** Write `pipeline/11_score_all_shots.py` loading `features_final.parquet` (the full 3-season table) and the trained model from `models/xgb_shot_quality.json`
+- [x] **T-023.2** Generate an `xfg_pct` prediction column for every shot — also defensively re-checks that the current feature set matches `feature_columns.json` (what the model was actually trained on) before scoring, raising loudly on drift instead of silently mis-scoring
+- [x] **T-023.3** Save the fully scored dataset to `data/processed/shots_scored.parquet`
+- **Verification note:** Phase 4 (T-023-T-028) has no `stats.nba.com` dependency, so — like Phase 3 — it was genuinely executed end-to-end (not just logic-tested) against a fresh synthetic dataset (3 players × 3 seasons × 150 shots). All synthetic data/DB/artifacts were deleted afterward; nothing here is real data yet.
 
 ---
 
@@ -313,11 +314,12 @@
 **Depends on:** T-014, T-022
 **Context:** Defines the tables the Flask app will query. Designed now that the final feature/prediction columns (T-014, T-022) are known, so the schema matches reality instead of being guessed upfront.
 
-- [ ] **T-024.1** Write `db/schema.sql` defining a `shots` table (shot id, player id, season, game id, location, distance, zone, action type, period, time remaining, home/away, score margin, actual make flag, `xfg_pct`)
-- [ ] **T-024.2** Define `players` table (player id, name, team(s) per season)
-- [ ] **T-024.3** Define `model_metrics` table (metric name, value, season/context) to hold log loss, AUC, Brier score, baseline comparison
-- [ ] **T-024.4** Define a `feature_importance` table and a `calibration_bins` table (bin range, predicted midpoint, actual rate, sample count) so the Methodology page can render its charts from the DB rather than static files
-- [ ] **T-024.5** Add appropriate indexes (on `player_id`, `season`) anticipating the Player Page and Leaderboard query patterns
+- [x] **T-024.1** Write `db/schema.sql` defining a `shots` table (shot id, player id, season, game id, location, distance, zone, action type, period, time remaining, home/away, score margin, actual make flag, `xfg_pct`)
+- [x] **T-024.2** Define `players` table (player id, name, team(s) per season) — team-per-season split into a separate `player_teams` table (a player can be on multiple teams in a season via trades), keeping `players` itself just id+name
+- [x] **T-024.3** Define `model_metrics` table (metric name, value, season/context) to hold log loss, AUC, Brier score, baseline comparison
+- [x] **T-024.4** Define a `feature_importance` table and a `calibration_bins` table (bin range, predicted midpoint, actual rate, sample count) so the Methodology page can render its charts from the DB rather than static files
+- [x] **T-024.5** Add appropriate indexes (on `player_id`, `season`) anticipating the Player Page and Leaderboard query patterns — also added a composite `(player_id, season)` index and a `(season_or_career, qualified)` index on `leaderboard` for the qualification-filtered query pattern
+- **Verification note:** schema syntax validated by loading it into an in-memory SQLite DB and confirming all 7 tables are created without error.
 
 ---
 
@@ -326,10 +328,11 @@
 **Depends on:** T-023, T-024
 **Context:** Loads the final scored dataset into the actual database file the Flask app will read from at runtime.
 
-- [ ] **T-025.1** Write `pipeline/12_load_db.py` that creates the SQLite file at the configured path using `db/schema.sql`
-- [ ] **T-025.2** Insert all rows from `shots_scored.parquet` into the `shots` table
-- [ ] **T-025.3** Insert player reference data (from T-004) into the `players` table
-- [ ] **T-025.4** Verify row counts in the DB match the source parquet files
+- [x] **T-025.1** Write `pipeline/12_load_db.py` that creates the SQLite file at the configured path using `db/schema.sql`
+- [x] **T-025.2** Insert all rows from `shots_scored.parquet` into the `shots` table — also reconstructs `ACTION_TYPE`/`SHOT_ZONE_BASIC`/`SHOT_ZONE_AREA`/`home_away` from T-014's one-hot-encoded columns back into single category columns, since the app needs to display/filter on real category names, not a pile of booleans
+- [x] **T-025.3** Insert player reference data (from T-004) into the `players` table — plus `player_teams` (see T-024.2)
+- [x] **T-025.4** Verify row counts in the DB match the source parquet files — implemented as a hard `RuntimeError` if counts mismatch, not just a printed warning
+- **Verification note:** ran for real against the same synthetic dataset as T-023 — verified the one-hot reconstruction produces clean category values (no nulls, correct distinct `action_type` values) by querying the loaded DB directly.
 
 ---
 
@@ -338,10 +341,10 @@
 **Depends on:** T-022, T-024
 **Context:** Loads the training/evaluation outputs into the DB so the Methodology page can be built as a normal data-driven page instead of reading static JSON files directly (keeps the app's data access pattern consistent).
 
-- [ ] **T-026.1** Insert log loss, AUC, Brier score (model + baseline) from `model_metrics.json`/`baseline_metrics.json` into `model_metrics`
-- [ ] **T-026.2** Insert calibration bucket data from `calibration_data.json` into `calibration_bins`
-- [ ] **T-026.3** Insert feature importance values from `feature_importance.json` into `feature_importance`
-- [ ] **T-026.4** Copy `calibration_plot.png` and `feature_importance.png` into `app/static/images/` so Flask can serve them directly alongside the DB-driven numbers
+- [x] **T-026.1** Insert log loss, AUC, Brier score (model + baseline) from `model_metrics.json`/`baseline_metrics.json` into `model_metrics` — implemented as `pipeline/12a_load_model_artifacts.py` (no prescribed filename for T-026 in this plan; numbered 12a to sit between T-025's `12_load_db.py` and T-027's `13_build_leaderboard_table.py`, same convention as `06a`-`06e`/`10a`-`10c`)
+- [x] **T-026.2** Insert calibration bucket data from `calibration_data.json` into `calibration_bins`
+- [x] **T-026.3** Insert feature importance values from `feature_importance.json` into `feature_importance`
+- [x] **T-026.4** Copy `calibration_plot.png` and `feature_importance.png` into `app/static/images/` so Flask can serve them directly alongside the DB-driven numbers
 
 ---
 
@@ -350,10 +353,11 @@
 **Depends on:** T-025
 **Context:** Pre-computes per-player, per-season actual FG% vs. expected FG% so the Leaderboard page is a fast, simple query instead of aggregating thousands of shot rows on every page load.
 
-- [ ] **T-027.1** Write `pipeline/13_build_leaderboard_table.py` that groups `shots` by (player, season) and computes total attempts, actual FG%, average `xfg_pct`, and the skill differential (actual − expected)
-- [ ] **T-027.2** Also compute the same aggregation across the full 3-year combined sample (per the PRD's "season selector: single season or 3-year combined" requirement)
-- [ ] **T-027.3** Write the results to a new `leaderboard` table in the SQLite DB (player id, season or "career", attempts, actual FG%, expected FG%, skill differential)
-- [ ] **T-027.4** Flag rows meeting `LEADERBOARD_MIN_ATTEMPTS` with a boolean `qualified` column, so the app can filter without recomputing thresholds at query time
+- [x] **T-027.1** Write `pipeline/13_build_leaderboard_table.py` that groups `shots` by (player, season) and computes total attempts, actual FG%, average `xfg_pct`, and the skill differential (actual − expected)
+- [x] **T-027.2** Also compute the same aggregation across the full 3-year combined sample (per the PRD's "season selector: single season or 3-year combined" requirement) — labeled `"career"` in `season_or_career`
+- [x] **T-027.3** Write the results to a new `leaderboard` table in the SQLite DB (player id, season or "career", attempts, actual FG%, expected FG%, skill differential)
+- [x] **T-027.4** Flag rows meeting `LEADERBOARD_MIN_ATTEMPTS` with a boolean `qualified` column, so the app can filter without recomputing thresholds at query time
+- **Verification note:** ran for real; per-season rows (~145 attempts each on the synthetic dataset) correctly came back `qualified=0` while the 3-year combined rows (~435-440 attempts) correctly came back `qualified=1` against the 250-attempt threshold — confirms the qualification logic and the season/career split both work correctly.
 
 ---
 
@@ -362,9 +366,10 @@
 **Depends on:** T-025, T-026, T-027
 **Context:** Confirms the full offline pipeline — from raw pull through to a queryable database — works end-to-end before any app code is built on top of it. Catching a broken join or schema mismatch here is far cheaper than debugging it through the Flask layer later.
 
-- [ ] **T-028.1** Write `pipeline/run_all.py` that runs every pipeline script in order (or documents the exact run order) so the whole pipeline is reproducible with one command
-- [ ] **T-028.2** Run basic sanity queries directly against the finished SQLite DB: total shot count matches expectations, a sample player's leaderboard row has a plausible actual-vs-expected differential, `model_metrics` table is populated
-- [ ] **T-028.3** Document the full pipeline run order and any manual steps in `pipeline/README.md`
+- [x] **T-028.1** Write `pipeline/run_all.py` that runs every pipeline script in order (or documents the exact run order) so the whole pipeline is reproducible with one command — loads each numbered script by file path (several start with a digit, so can't use a normal `import` statement) and calls its `main()`
+- [x] **T-028.2** Run basic sanity queries directly against the finished SQLite DB: total shot count matches expectations, a sample player's leaderboard row has a plausible actual-vs-expected differential, `model_metrics` table is populated — ran this function directly against the synthetic DB and confirmed all checks pass
+- [x] **T-028.3** Document the full pipeline run order and any manual steps in `pipeline/README.md` — includes the full 22-step table, prerequisites, and what to do if a step fails partway through
+- **Note:** `run_all.py` itself (the full chained sequence including the live-network steps 01-04) was not run start-to-finish in this sandbox, since steps 01-04 need real `stats.nba.com` access this environment doesn't have. Every individual step from 06 onward *was* run for real (see the verification notes on T-023/T-025/T-027 above and on Phase 3); only the network-bound pull steps remain to be exercised by the user on a machine with real internet access.
 
 ---
 
