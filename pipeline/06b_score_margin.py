@@ -1,12 +1,14 @@
 """T-011: Join score margin from play-by-play data.
 
-`shotchartdetail` doesn't include the live score. `playbyplayv2` (pulled in
-T-006) does, via its SCOREMARGIN field on every event. Rather than a fuzzy
-clock-time join, this uses an exact-ID join: shotchartdetail's GAME_EVENT_ID
-and playbyplayv2's EVENTNUM refer to the same underlying event log for a
-game, so they line up directly. We take the score margin as of the *last*
-event strictly before the shot's own event (so a made shot's own scoring
-isn't counted as "already happened" going into that shot).
+`shotchartdetail` doesn't include the live score. `playbyplayv3` (pulled in
+T-006 — see that script's docstring for why v3 and not v2) does, via its
+`scoreHome`/`scoreAway` running-score fields on every event. Rather than a
+fuzzy clock-time join, this uses an exact-ID join: shotchartdetail's
+GAME_EVENT_ID and playbyplayv3's `actionNumber` refer to the same underlying
+event log for a game (the same assumption that held for v2's `EVENTNUM`), so
+they line up directly. We take the score margin as of the *last* event
+strictly before the shot's own event (so a made shot's own scoring isn't
+counted as "already happened" going into that shot).
 
 Usage:
     python pipeline/06b_score_margin.py
@@ -29,31 +31,19 @@ OUTPUT_PATH = DATA_PROCESSED_DIR / "shots_with_score_margin.parquet"
 FALLBACK_SCORE_MARGIN = 0  # T-011.4: documented fallback for unmatched shots
 
 
-def parse_score_margin(raw: object) -> float:
-    """Parse playbyplayv2's SCOREMARGIN field: "TIE" -> 0, "+5"/"-3" -> 5/-3,
-    None/blank -> NaN (left for forward-fill to resolve).
-    """
-    if raw is None:
-        return float("nan")
-    text = str(raw).strip()
-    if text == "" or text.lower() == "none":
-        return float("nan")
-    if text.upper() == "TIE":
-        return 0.0
-    try:
-        return float(text)
-    except ValueError:
-        return float("nan")
-
-
 def load_playbyplay() -> pd.DataFrame:
     """T-011.1: load and consolidate all pulled play-by-play files, with a
     running (forward-filled) score margin per game so every event has a
-    known score state even if SCOREMARGIN itself is blank on that row.
+    known score state even if scoreHome/scoreAway are blank on that row.
+
+    playbyplayv3's schema uses camelCase columns (gameId, actionNumber,
+    scoreHome, scoreAway) instead of v2's (GAME_ID, EVENTNUM, SCOREMARGIN);
+    score_margin here is computed directly as scoreHome - scoreAway rather
+    than parsed from a single signed string field.
     """
     frames = []
     for pbp_file in sorted(PLAYBYPLAY_RAW_DIR.glob("*.parquet")):
-        df = pd.read_parquet(pbp_file, columns=["GAME_ID", "EVENTNUM", "SCOREMARGIN"])
+        df = pd.read_parquet(pbp_file, columns=["gameId", "actionNumber", "scoreHome", "scoreAway"])
         frames.append(df)
 
     if not frames:
@@ -63,9 +53,16 @@ def load_playbyplay() -> pd.DataFrame:
         )
 
     pbp = pd.concat(frames, ignore_index=True)
+    pbp = pbp.rename(columns={"gameId": "GAME_ID", "actionNumber": "EVENTNUM"})
     pbp["GAME_ID"] = pbp["GAME_ID"].astype(str).str.zfill(10)
     pbp["EVENTNUM"] = pbp["EVENTNUM"].astype(int)
-    pbp["score_margin_parsed"] = pbp["SCOREMARGIN"].map(parse_score_margin)
+
+    # scoreHome/scoreAway come through as strings (possibly blank on
+    # non-scoring events); coerce to numeric, leaving unparseable/blank
+    # values as NaN for the forward-fill below to resolve.
+    score_home = pd.to_numeric(pbp["scoreHome"], errors="coerce")
+    score_away = pd.to_numeric(pbp["scoreAway"], errors="coerce")
+    pbp["score_margin_parsed"] = score_home - score_away
 
     pbp = pbp.sort_values(["GAME_ID", "EVENTNUM"])
     # Running score state as of each event, forward-filled within each game.
