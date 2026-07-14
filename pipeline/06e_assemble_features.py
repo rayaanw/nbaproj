@@ -38,6 +38,10 @@ CRITICAL_COLUMNS = [
     "shot_angle",
     "shot_distance_bucket",
     "score_margin",
+    # defender_distance_prior is included here for safety, but as of the
+    # 2026-07-14 graceful-degradation fix (see 06d_defender_prior.py) it's
+    # tiered-fallback-filled and should never actually be NaN by this point —
+    # kept in the list in case that invariant is ever broken upstream.
     "defender_distance_prior",
     "home_away",
     "time_remaining_in_period",
