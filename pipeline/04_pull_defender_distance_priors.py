@@ -66,6 +66,15 @@ CLOSE_DEF_DIST_RANGES = [
     "6+ Feet - Wide Open",
 ]
 
+# Real-world finding (2026-07-14): every single bucket combination failed
+# identically on a live run — strong evidence this is a deterministic/
+# endpoint-wide failure, not a transient network issue that retries would
+# fix. Using a much lower retry count than the pipeline default (5) so a
+# fully-broken endpoint fails fast (~seconds per bucket) instead of burning
+# ~15-20s per bucket on retries that were never going to succeed. If this
+# endpoint starts working again later, bump this back up.
+MAX_RETRIES_FOR_THIS_ENDPOINT = 1
+
 
 def pull_bucket(season: str, shot_dist_range: str, close_def_dist_range: str) -> pd.DataFrame | None:
     """Returns None (rather than raising) if this bucket combination fails
@@ -88,7 +97,7 @@ def pull_bucket(season: str, shot_dist_range: str, close_def_dist_range: str) ->
         )
 
     try:
-        endpoint = call_with_retry(build, description=description)
+        endpoint = call_with_retry(build, description=description, max_retries=MAX_RETRIES_FOR_THIS_ENDPOINT)
     except Exception as exc:  # noqa: BLE001 - already retried; log and move on
         print(f"  [skip] {description}: {exc!r}")
         return None
