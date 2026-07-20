@@ -68,6 +68,20 @@ def get_leaderboard(season_or_career: str, min_attempts: int | None = None) -> l
         return conn.execute(query, params).fetchall()
 
 
+# Real-world performance fix (2026-07-20): the league-wide unfiltered
+# Explorer view returns 600K+ shots on real data. Serializing and
+# transferring every raw row as JSON made the request hang/time out
+# entirely in the browser — genuinely unusable, not just slow. A hexbin/
+# density visualization doesn't need every individual point to look
+# statistically correct, so results are capped to a random sample once a
+# query would return more than this many rows.
+MAX_EXPLORER_SHOTS = 8000
+
+# Only the columns the Explorer/Player Page charts actually use — avoids
+# pulling (and re-serializing) unused columns like game_id, period, etc.
+EXPLORER_SHOT_COLUMNS = "s.loc_x, s.loc_y, s.shot_distance, s.action_type, s.xfg_pct, s.shot_made_flag"
+
+
 def get_explorer_shots(
     season: str | None = None,
     zone: str | None = None,
@@ -75,17 +89,17 @@ def get_explorer_shots(
     team_id: int | None = None,
 ) -> list[sqlite3.Row]:
     """T-030.4: filtered shots for the Shot Explorer hexbin. Defaults to the
-    full league-wide set when no filters are given.
+    full league-wide set when no filters are given — capped to a random
+    sample of MAX_EXPLORER_SHOTS rows (see note above) rather than returning
+    every matching row, since an unfiltered/lightly-filtered query can
+    easily match hundreds of thousands of shots on real data.
     """
-    query = "SELECT s.* FROM shots s"
-    joins = []
+    from_clause = "FROM shots s"
     conditions = []
     params: list = []
 
     if team_id is not None:
-        joins.append(
-            "JOIN player_teams pt ON pt.player_id = s.player_id AND pt.season = s.season"
-        )
+        from_clause += " JOIN player_teams pt ON pt.player_id = s.player_id AND pt.season = s.season"
         conditions.append("pt.team_id = ?")
         params.append(team_id)
 
@@ -99,12 +113,16 @@ def get_explorer_shots(
         conditions.append("s.player_id = ?")
         params.append(player_id)
 
-    if joins:
-        query += " " + " ".join(joins)
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
+    where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ""
 
     with get_connection() as conn:
+        total = conn.execute(f"SELECT COUNT(*) {from_clause}{where_clause}", params).fetchone()[0]
+
+        query = f"SELECT {EXPLORER_SHOT_COLUMNS} {from_clause}{where_clause}"
+        if total > MAX_EXPLORER_SHOTS:
+            query += " ORDER BY RANDOM() LIMIT ?"
+            params = [*params, MAX_EXPLORER_SHOTS]
+
         return conn.execute(query, params).fetchall()
 
 

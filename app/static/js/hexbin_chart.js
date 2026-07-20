@@ -18,6 +18,37 @@
 
 const COURT_LINE_COLOR = "rgba(255, 255, 255, 0.9)";
 
+// Full half-court bounds, matching the court diagram drawn by getCourtTraces().
+const FULL_COURT_X = [-260, 260];
+const FULL_COURT_Y = [-60, 432.5];
+
+// When filtering to a specific zone/player, shots naturally cluster in a
+// small region — always showing the full court would leave that data
+// crammed into a tiny corner of an otherwise-empty chart (easy to mistake
+// for "no data"). Auto-zooms to the actual filtered data's bounding box
+// instead, clamped so it never exceeds the real court bounds and never
+// zooms in tighter than a sensible minimum window (so a single shot, or a
+// tight cluster, doesn't zoom in to an unreadably small area).
+const MIN_WINDOW_SIZE = 120; // court units (~12 ft) — a sensible lower bound on zoom
+const PADDING_FRACTION = 0.2;
+
+function computeAxisRange(values, fullRange) {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(max - min, MIN_WINDOW_SIZE);
+  const padding = span * PADDING_FRACTION;
+  const center = (min + max) / 2;
+
+  let lo = center - span / 2 - padding;
+  let hi = center + span / 2 + padding;
+
+  // Clamp to the real court bounds — never zoom "out" past the court itself.
+  lo = Math.max(lo, fullRange[0]);
+  hi = Math.min(hi, fullRange[1]);
+
+  return [lo, hi];
+}
+
 /** Points along a circular arc, in standard math convention (0 deg = +x axis,
  * counterclockwise), for court features that aren't straight lines.
  */
@@ -125,15 +156,22 @@ function renderHexbinChart(containerId, shots, options = {}) {
 
   const courtTraces = getCourtTraces();
 
+  // Auto-zoom to where the filtered data actually is (see computeAxisRange
+  // docs above) instead of always showing the full court — otherwise a
+  // narrow filter (e.g. a single corner-three zone) looks like an empty
+  // chart with data crammed into one corner.
+  const xRange = computeAxisRange(xValues, FULL_COURT_X);
+  const yRange = computeAxisRange(yValues, FULL_COURT_Y);
+
   const layout = {
     title: options.title || "Shot Chart",
     paper_bgcolor: "#0e1117",
     plot_bgcolor: "#0e1117",
     font: { color: "#e6edf3" },
-    xaxis: { visible: false, range: [-260, 260] },
+    xaxis: { visible: false, range: xRange },
     // scaleanchor locks the y-axis to the x-axis at a 1:1 ratio so the
     // hoop/arcs render as actual circles instead of stretched ellipses.
-    yaxis: { visible: false, range: [-60, 432.5], scaleanchor: "x", scaleratio: 1 },
+    yaxis: { visible: false, range: yRange, scaleanchor: "x", scaleratio: 1 },
     margin: { t: 40, l: 10, r: 10, b: 10 },
     height: 580,
     showlegend: true,
