@@ -1,15 +1,18 @@
 # T-047.3: Render service definition.
 #
 # This is a static-data-serving Flask app — no build step beyond installing
-# dependencies, no database service (SQLite ships as a file in the repo; see
-# CLAUDE.md and pipeline/README.md for why and how it gets there).
+# dependencies and fetching the pre-built SQLite database, no separate
+# database service. The DB (~116MB) is too large for a plain git commit
+# (GitHub's 100MB per-file limit), so it ships as a GitHub Release asset
+# instead and is downloaded into db/ during the build step below. See
+# pipeline/README.md for how the DB itself gets built.
 
 services:
   - type: web
     name: nba-shot-quality-model
     runtime: python
     plan: free
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "pip install -r requirements.txt && mkdir -p db && curl -L -o db/nba_shot_quality.sqlite3 https://github.com/rayaanw/nbaproj/releases/download/data-v1/nba_shot_quality.sqlite3"
     startCommand: "gunicorn app.run:app"
     envVars:
       - key: DEBUG
